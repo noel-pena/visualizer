@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glitch Audio Visualizer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #000000;
+      font-family: 'Inter', sans-serif;
+      color: white;
+    }
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+    #controls {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+      background-color: rgba(0, 0, 0, 0.7);
+      padding: 1rem;
+      border-radius: 8px;
+      z-index: 10;
+      width: 300px;
+    }
+    #controls label {
+      display: block;
+      margin-bottom: 0.25rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    #controls input[type="file"] {
+      display: block;
+      width: 100%;
+      margin-bottom: 1rem;
+      font-size: 0.875rem;
+    }
+    #controls input[type="range"] {
+      width: 100%;
+      margin-bottom: 0.75rem;
+    }
+    #controls audio {
+      width: 100%;
+      margin-bottom: 0.5rem;
+    }
+
+  </style>
+</head>
+<body>
+<canvas id="visualizer-canvas"></canvas>
+
+<div id="controls" class="text-white">
+  <label for="audio-file">Load Audio File</label>
+  <input type="file" id="audio-file" accept="audio/*"
+         class="mb-4 block w-full text-sm text-gray-300
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-md file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-purple-600 file:text-white
+                      hover:file:bg-purple-700
+                      file:cursor-pointer">
+
+  <audio id="audio-player" controls class="w-full"></audio>
+
+
+  <label for="rotation-slider">Rotation Speed</label>
+  <input type="range" id="rotation-slider" min="0" max="0.02" step="0.001" value="0.005" class="w-full mb-2 cursor-pointer">
+
+
+  <label for="scanline-slider">Scanline Intensity</label>
+  <input type="range" id="scanline-slider" min="0" max="1" step="0.01" value="0.25" class="w-full cursor-pointer">
+</div>
+
+
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+</script>
+
+<!--
+  Main application logic.
+-->
+<script type="module">
+  import * as THREE from 'three';
+  import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+  import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+  import { GlitchPass } from 'three/addons/postprocessing/GlitchPass.js';
+  import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+  import { HueSaturationShader } from 'three/addons/shaders/HueSaturationShader.js';
+  import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
+
+  /**
+   * Main class for the Glitch Audio Visualizer application.
+   */
+  class GlitchVisualizer {
+    /** @type {THREE.Scene} */
+    scene;
+    /** @type {THREE.PerspectiveCamera} */
+    camera;
+    /** @type {THREE.WebGLRenderer} */
+    renderer;
+    /** @type {EffectComposer} */
+    composer;
+    /** @type {GlitchPass} */
+    glitchPass;
+    /** @type {ShaderPass} */
+    huePass;
+    /** @type {FilmPass} */
+    filmPass;
+    /** @type {THREE.Mesh} */
+    mesh;
+
+    /** @type {AudioContext} */
+    audioContext;
+    /** @type {AnalyserNode} */
+    analyser;
+    /** @type {Uint8Array} */
+    frequencyData;
+    /** @type {MediaElementAudioSourceNode | null} */
+    audioSource = null;
+    /** @type {boolean} */
+    isAudioInitialized = false;
+
+    /** @type {HTMLInputElement} */
+    audioFileInput;
+    /** @type {HTMLAudioElement} */
+    audioPlayer;
+    /** @type {HTMLInputElement} */
+    // thresholdSlider; // Removed
+    /** @type {HTMLInputElement} */
+    rotationSlider;
+    /** @type {HTMLInputElement} */
+    hueSlider;
+    /** @type {HTMLInputElement} */
+    scanlineSlider;
+
+    /** @type {number} */
+    // glitchThreshold = 0.6; // Removed
+    /** @type {number} */
+    rotationSpeed = 0.005;
+    /** @type {number} */
+    hueValue = 0;
+    /** @type {number} */
+    scanlineIntensity = 0.25;
+    /** @type {boolean} */
+    isConstructed = false; // Flag to check if constructor finished
+
+    constructor() {
+      const canvas = document.getElementById('visualizer-canvas');
+      if (!canvas) {
+        console.error("Canvas element not found!");
+        return;
+      }
+
+      // --- Three.js Setup ---
+      this.scene = new THREE.Scene();
+      this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      this.renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+
+      // --- Post-processing (Effect) Setup ---
+      this.composer = new EffectComposer(this.renderer);
+      const renderPass = new RenderPass(this.scene, this.camera);
+      this.composer.addPass(renderPass);
+
+      // Glitch Pass
+      this.glitchPass = new GlitchPass();
+      this.glitchPass.enabled = false; // Start disabled, will be triggered by audio
+      this.composer.addPass(this.glitchPass);
+
+      // Hue Pass
+      this.huePass = new ShaderPass(HueSaturationShader);
+      this.composer.addPass(this.huePass);
+
+      // Film (Scanline) Pass
+      // FIX: Pass scanlineIntensity to the 2nd argument (sIntensity)
+      //      The 1st argument (nIntensity) is for noise, set to a default.
+      this.filmPass = new FilmPass(0.35, this.scanlineIntensity, 0, false);
+      this.composer.addPass(this.filmPass);
+
+      // --- UI Elements ---
+      this.audioFileInput = document.getElementById('audio-file');
+      this.audioPlayer = document.getElementById('audio-player');
+      // this.thresholdSlider = document.getElementById('threshold-slider'); // Removed
+      this.rotationSlider = document.getElementById('rotation-slider');
+      // this.hueSlider = document.getElementById('hue-slider'); // Removed
+      this.scanlineSlider = document.getElementById('scanline-slider');
+
+      // Check if all UI elements were found
+      if (!this.audioFileInput || !this.audioPlayer || /* !this.thresholdSlider || */ // Removed
+        !this.rotationSlider || /* !this.hueSlider || */ !this.scanlineSlider) { // Removed hueSlider from check
+        console.error("Initialization Error: One or more UI elements (sliders, audio player) not found!");
+        return; // Return early, isConstructed will be false
+      }
+
+      // Set initial values from controls
+      // this.glitchThreshold = parseFloat(this.thresholdSlider.value); // Removed
+      this.rotationSpeed = parseFloat(this.rotationSlider.value);
+      // this.hueValue = parseFloat(this.hueSlider.value); // Removed - will be set in animate()
+      this.scanlineIntensity = parseFloat(this.scanlineSlider.value);
+
+      // --- Web Audio API Setup ---
+      // Create context and analyser nodes on load
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 256;
+      const bufferLength = this.analyser.frequencyBinCount;
+      this.frequencyData = new Uint8Array(bufferLength);
+
+      this.isConstructed = true; // All good, set flag
+    }
+
+    /**
+     * Initializes the scene and event listeners.
+     */
+    init() {
+      // Add a check to see if constructor finished.
+      if (!this.isConstructed) {
+        console.error("Initialization failed: Constructor did not complete.");
+        return;
+      }
+
+      this.initScene();
+      this.setupEventListeners();
+      this.onWindowResize(); // Set initial size
+      this.animate(); // Start animation loop immediately
+    }
+
+    /**
+     * Creates the 3D objects for the scene.
+     */
+    initScene() {
+      const geometry = new THREE.IcosahedronGeometry(2, 3);
+      // Set wireframe to true to see the lines
+      const material = new THREE.MeshNormalMaterial({ wireframe: true });
+      this.mesh = new THREE.Mesh(geometry, material);
+      this.scene.add(this.mesh);
+      this.camera.position.z = 5;
+    }
+
+    /**
+     * Sets up event listeners for UI interaction and window resizing.
+     */
+    setupEventListeners() {
+      window.addEventListener('resize', () => this.onWindowResize());
+
+      // Listen for file selection
+      this.audioFileInput.addEventListener('change', (e) => this.loadAudio(e));
+
+      // Listen for audio playback to initialize AudioContext
+      this.audioPlayer.addEventListener('play', () => this.initAudio());
+
+      // Listen for slider adjustments
+      /* // Removed threshold slider event listener
+      this.thresholdSlider.addEventListener('input', (e) => {
+          this.glitchThreshold = parseFloat(e.target.value);
+      });
+      */
+      this.rotationSlider.addEventListener('input', (e) => {
+        this.rotationSpeed = parseFloat(e.target.value);
+      });
+      /* // Removed hue slider event listener
+      this.hueSlider.addEventListener('input', (e) => {
+          this.hueValue = parseFloat(e.target.value);
+      });
+      */
+      this.scanlineSlider.addEventListener('input', (e) => {
+        this.scanlineIntensity = parseFloat(e.target.value);
+      });
+    }
+
+    /**
+     * Loads the selected audio file into the audio player.
+     * @param {Event} event - The file input change event.
+     */
+    loadAudio(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const url = URL.createObjectURL(file);
+        this.audioPlayer.src = url;
+        this.audioPlayer.load();
+      }
+    }
+
+    /**
+     * Initializes the Web Audio API graph.
+     * This is called by the 'play' event.
+     */
+    initAudio() {
+      // Connect the audio graph only once
+      if (!this.isAudioInitialized) {
+        try {
+          // Create audio source from the <audio> element
+          this.audioSource = this.audioContext.createMediaElementSource(this.audioPlayer);
+
+          // Connect the nodes: AudioPlayer -> Analyser -> Speakers
+          this.audioSource.connect(this.analyser);
+          this.analyser.connect(this.audioContext.destination);
+
+          this.isAudioInitialized = true;
+        } catch (err) {
+          console.error('Error connecting audio source:', err);
+          return;
+        }
+      }
+
+      // Always resume the context on play, as it might be suspended
+      if (this.audioContext.state === 'suspended') {
+        this.audioContext.resume();
+      }
+    }
+
+    /**
+     * Handles window resize events to keep the visualizer fullscreen.
+     */
+    onWindowResize() {
+      this.camera.aspect = window.innerWidth / window.innerHeight;
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      this.composer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    /**
+     * The main animation loop, called every frame.
+     */
+    animate() {
+      // Bind the class context and request the next frame
+      requestAnimationFrame(() => this.animate());
+
+      let averageFrequency = 0;
+
+      // Get audio data only if the audio graph is initialized
+      if (this.isAudioInitialized) {
+        this.analyser.getByteFrequencyData(this.frequencyData);
+
+        // --- Calculate Bass Level ---
+        // The first few bins of frequencyData hold the low-end (bass)
+        const BASS_BINS = 10; // Number of bins to average for bass
+        let bassSum = 0;
+        for (let i = 0; i < BASS_BINS; i++) {
+          bassSum += this.frequencyData[i];
+        }
+        averageFrequency = bassSum / BASS_BINS; // This is now the bass average
+      }
+
+      // --- Update Visuals ---
+
+      // Rotate the mesh based on the slider value
+      this.mesh.rotation.x += this.rotationSpeed / 2.5;
+      this.mesh.rotation.y += this.rotationSpeed;
+
+      // --- Update Effects Uniforms ---
+
+      // Automate hue shift
+      const time = Date.now() * 0.0002; // Get time and slow it down
+      this.hueValue = Math.sin(time); // Oscillates between -1 and 1
+
+      // Add checks to ensure pass and uniform exist before assignment
+      if (this.huePass && this.huePass.uniforms['hue']) {
+        this.huePass.uniforms['hue'].value = this.hueValue;
+      }
+
+      if (this.filmPass && this.filmPass.uniforms['sIntensity']) {
+        this.filmPass.uniforms['sIntensity'].value = this.scanlineIntensity;
+      }
+
+      // --- Control Glitch Effect ---
+      // Set a fixed (non-slider) threshold for the bass trigger
+      const BASS_TRIGGER_LEVEL = 90; // (value from 0-255)
+
+      // Enable/disable the glitch pass based on bass level
+      if (this.glitchPass) {
+        if (averageFrequency > BASS_TRIGGER_LEVEL) {
+          this.glitchPass.enabled = true;
+        } else {
+          this.glitchPass.enabled = false;
+        }
+      }
+
+      // Render the scene through the effect composer
+      this.composer.render();
+    }
+  }
+
+  // --- App Initialization ---
+  document.addEventListener('DOMContentLoaded', () => {
+    const app = new GlitchVisualizer();
+    app.init();
+  });
+</script>
+</body>
+</html>
+
+
+
