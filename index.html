@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Glitch Audio Visualizer</title>
+  <title>Glitch Visualizer</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     html, body {
@@ -25,13 +25,14 @@
     }
     #controls {
       position: absolute;
-      top: 1rem;
-      left: 1rem;
+      top: 0;
+      left: 0;
       background-color: rgba(0, 0, 0, 0.7);
-      padding: 1rem;
-      border-radius: 8px;
+      padding: 0.5rem;
+      border-radius: 0 0 8px 0;
       z-index: 10;
       width: 300px;
+      backdrop-filter: blur(5px);
     }
     #controls label {
       display: block;
@@ -39,47 +40,94 @@
       font-size: 0.875rem;
       font-weight: 500;
     }
-    #controls input[type="file"] {
-      display: block;
-      width: 100%;
-      margin-bottom: 1rem;
-      font-size: 0.875rem;
-    }
     #controls input[type="range"] {
       width: 100%;
       margin-bottom: 0.75rem;
     }
-    #controls audio {
-      width: 100%;
-      margin-bottom: 0.5rem;
+    #controls input[type="number"] {
+      background-color: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 4px;
+      padding: 0.25rem 0.5rem;
+      width: 60px;
     }
-
+    /* Style for disabled recording button */
+    #start-recording-button:disabled {
+      background-color: #4b5563; /* gray-600 */
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
 <canvas id="visualizer-canvas"></canvas>
 
+<!-- Updated Controls Section -->
 <div id="controls" class="text-white">
-  <label for="audio-file">Load Audio File</label>
-  <input type="file" id="audio-file" accept="audio/*"
-         class="mb-4 block w-full text-sm text-gray-300
-                      file:mr-4 file:py-2 file:px-4
-                      file:rounded-md file:border-0
-                      file:text-sm file:font-semibold
-                      file:bg-purple-600 file:text-white
-                      hover:file:bg-purple-700
-                      file:cursor-pointer">
+  <!-- Toggle Button -->
+  <button id="toggle-controls" class="flex items-center text-left">
+    <!-- Arrow SVG Icon -->
+    <svg id="arrow-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 transition-transform duration-300 transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+    </svg>
+  </button>
 
-  <audio id="audio-player" controls class="w-full"></audio>
+  <!-- Collapsible Content -->
+  <div id="controls-content" class="transition-all duration-300 ease-in-out max-h-0 opacity-0 overflow-hidden">
+    <h2 class="text-lg font-semibold pt-2">Controls</h2> <!-- Added text here -->
+    <div class="mt-4 space-y-4"> <!-- Added spacing for controls -->
 
+      <!-- Rotation Speed Slider -->
+      <div>
+        <label for="rotation-slider">Rotation Speed</label>
+        <input type="range" id="rotation-slider" min="0" max="0.05" step="0.001" value="0.005" class="w-full mb-2 cursor-pointer">
+      </div>
 
-  <label for="rotation-slider">Rotation Speed</label>
-  <input type="range" id="rotation-slider" min="0" max="0.02" step="0.001" value="0.005" class="w-full mb-2 cursor-pointer">
+      <!-- Detail Slider -->
+      <div>
+        <label for="detail-slider">Sphere Detail</label>
+        <div class="flex justify-between items-center mb-2">
+          <input type="range" id="detail-slider" min="0" max="50" step="1" value="3" class="w-full cursor-pointer mr-3">
+          <span id="detail-value" class="text-sm text-gray-300 w-6 text-right">3</span>
+        </div>
+      </div>
 
+      <!-- BPM Slider -->
+      <div>
+        <label for="bpm-slider">BPM</label>
+        <div class="flex justify-between items-center mb-2">
+          <input type="range" id="bpm-slider" min="60" max="180" step="1" value="120" class="w-full cursor-pointer mr-3">
+          <span id="bpm-value" class="text-sm text-gray-300 w-6 text-right">120</span>
+        </div>
+      </div>
 
-  <label for="scanline-slider">Scanline Intensity</label>
-  <input type="range" id="scanline-slider" min="0" max="1" step="0.01" value="0.25" class="w-full cursor-pointer">
+      <!-- Glitch Toggle Switch -->
+      <label for="glitch-toggle" class="flex items-center cursor-pointer">
+        <span class="mr-3 text-sm">Glitch Effect</span>
+        <div class="relative">
+          <input type="checkbox" id="glitch-toggle" class="sr-only peer" checked>
+          <div class="w-14 h-8 bg-gray-600 rounded-full peer-checked:bg-purple-600 transition-colors"></div>
+          <div class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-full"></div>
+        </div>
+      </label>
+
+      <!-- Recording Section -->
+      <div class="pt-4 border-t border-gray-600">
+        <h3 class="text-md font-semibold mb-2">Recording</h3>
+        <div class="flex items-center justify-between mb-2">
+          <label for="recording-duration" class="text-sm">Duration (sec):</label>
+          <input type="number" id="recording-duration" min="1" max="60" value="10" class="text-white text-sm">
+        </div>
+        <button id="start-recording-button" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded transition-colors">
+          Start Recording
+        </button>
+        <span id="recording-status" class="text-sm text-yellow-300 mt-2 hidden">Recording...</span>
+        <p class="text-xs text-gray-400 mt-2">Saves a .webm file. Use an online converter if you need .mp4.</p>
+      </div>
+
+    </div>
+  </div>
 </div>
+<!-- End of Updated Controls Section -->
 
 
 <script type="importmap">
@@ -101,10 +149,9 @@
   import { GlitchPass } from 'three/addons/postprocessing/GlitchPass.js';
   import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
   import { HueSaturationShader } from 'three/addons/shaders/HueSaturationShader.js';
-  import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
 
   /**
-   * Main class for the Glitch Audio Visualizer application.
+   * Main class for the Glitch Visualizer application.
    */
   class GlitchVisualizer {
     /** @type {THREE.Scene} */
@@ -119,43 +166,64 @@
     glitchPass;
     /** @type {ShaderPass} */
     huePass;
-    /** @type {FilmPass} */
-    filmPass;
     /** @type {THREE.Mesh} */
     mesh;
 
-    /** @type {AudioContext} */
-    audioContext;
-    /** @type {AnalyserNode} */
-    analyser;
-    /** @type {Uint8Array} */
-    frequencyData;
-    /** @type {MediaElementAudioSourceNode | null} */
-    audioSource = null;
-    /** @type {boolean} */
-    isAudioInitialized = false;
-
-    /** @type {HTMLInputElement} */
-    audioFileInput;
-    /** @type {HTMLAudioElement} */
-    audioPlayer;
-    /** @type {HTMLInputElement} */
-    // thresholdSlider; // Removed
     /** @type {HTMLInputElement} */
     rotationSlider;
     /** @type {HTMLInputElement} */
-    hueSlider;
+    bpmSlider;
+    /** @type {HTMLSpanElement} */
+    bpmValueSpan;
     /** @type {HTMLInputElement} */
-    scanlineSlider;
+    glitchToggle;
+    /** @type {HTMLInputElement} */
+    detailSlider;
+    /** @type {HTMLSpanElement} */
+    detailValueSpan;
 
-    /** @type {number} */
-    // glitchThreshold = 0.6; // Removed
+    // --- New UI elements for collapsible controls ---
+    /** @type {HTMLButtonElement} */
+    toggleButton;
+    /** @type {HTMLDivElement} */
+    controlsContent;
+    /** @type {HTMLElement} */
+    arrowIcon;
+    // --- End of new UI elements ---
+
+    // --- New Recording Properties ---
+    /** @type {HTMLInputElement} */
+    recordingDurationInput;
+    /** @type {HTMLButtonElement} */
+    startRecordingButton;
+    /** @type {HTMLSpanElement} */
+    recordingStatus;
+    /** @type {MediaRecorder | null} */
+    mediaRecorder = null;
+    /** @type {Blob[]} */
+    recordedChunks = [];
+    /** @type {boolean} */
+    isRecording = false;
+    // --- End Recording Properties ---
+
     /** @type {number} */
     rotationSpeed = 0.005;
     /** @type {number} */
     hueValue = 0;
     /** @type {number} */
-    scanlineIntensity = 0.25;
+    sphereDetail = 3;
+
+    // --- BPM and Glitch Timing Properties ---
+    /** @type {number} */
+    bpm = 120;
+    /** @type {number} */
+    lastBeatTime = 0;
+    /** @type {number} */
+    glitchDuration = 100;
+    /** @type {boolean} */
+    isGlitchEffectEnabled = true;
+    // --- End BPM Properties ---
+
     /** @type {boolean} */
     isConstructed = false; // Flag to check if constructor finished
 
@@ -169,7 +237,12 @@
       // --- Three.js Setup ---
       this.scene = new THREE.Scene();
       this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-      this.renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+      // CRITICAL: Added preserveDrawingBuffer: true for recording
+      this.renderer = new THREE.WebGLRenderer({
+        canvas: canvas,
+        antialias: true,
+        preserveDrawingBuffer: true
+      });
 
       // --- Post-processing (Effect) Setup ---
       this.composer = new EffectComposer(this.renderer);
@@ -178,47 +251,48 @@
 
       // Glitch Pass
       this.glitchPass = new GlitchPass();
-      this.glitchPass.enabled = false; // Start disabled, will be triggered by audio
+      this.glitchPass.enabled = false; // Start disabled
       this.composer.addPass(this.glitchPass);
 
       // Hue Pass
       this.huePass = new ShaderPass(HueSaturationShader);
       this.composer.addPass(this.huePass);
 
-      // Film (Scanline) Pass
-      // FIX: Pass scanlineIntensity to the 2nd argument (sIntensity)
-      //      The 1st argument (nIntensity) is for noise, set to a default.
-      this.filmPass = new FilmPass(0.35, this.scanlineIntensity, 0, false);
-      this.composer.addPass(this.filmPass);
-
       // --- UI Elements ---
-      this.audioFileInput = document.getElementById('audio-file');
-      this.audioPlayer = document.getElementById('audio-player');
-      // this.thresholdSlider = document.getElementById('threshold-slider'); // Removed
       this.rotationSlider = document.getElementById('rotation-slider');
-      // this.hueSlider = document.getElementById('hue-slider'); // Removed
-      this.scanlineSlider = document.getElementById('scanline-slider');
+      this.bpmSlider = document.getElementById('bpm-slider');
+      this.bpmValueSpan = document.getElementById('bpm-value');
+      this.glitchToggle = document.getElementById('glitch-toggle');
+      this.detailSlider = document.getElementById('detail-slider');
+      this.detailValueSpan = document.getElementById('detail-value');
+
+      this.toggleButton = document.getElementById('toggle-controls');
+      this.controlsContent = document.getElementById('controls-content');
+      this.arrowIcon = document.getElementById('arrow-icon');
+
+      // --- Get Recording UI Elements ---
+      this.recordingDurationInput = document.getElementById('recording-duration');
+      this.startRecordingButton = document.getElementById('start-recording-button');
+      this.recordingStatus = document.getElementById('recording-status');
 
       // Check if all UI elements were found
-      if (!this.audioFileInput || !this.audioPlayer || /* !this.thresholdSlider || */ // Removed
-        !this.rotationSlider || /* !this.hueSlider || */ !this.scanlineSlider) { // Removed hueSlider from check
-        console.error("Initialization Error: One or more UI elements (sliders, audio player) not found!");
+      if (!this.rotationSlider ||
+        !this.bpmSlider || !this.bpmValueSpan ||
+        !this.glitchToggle ||
+        !this.detailSlider || !this.detailValueSpan ||
+        !this.toggleButton || !this.controlsContent || !this.arrowIcon ||
+        !this.recordingDurationInput || !this.startRecordingButton || !this.recordingStatus) { // --- Added recording UI check ---
+        console.error("Initialization Error: One or more UI elements not found!");
         return; // Return early, isConstructed will be false
       }
 
       // Set initial values from controls
-      // this.glitchThreshold = parseFloat(this.thresholdSlider.value); // Removed
       this.rotationSpeed = parseFloat(this.rotationSlider.value);
-      // this.hueValue = parseFloat(this.hueSlider.value); // Removed - will be set in animate()
-      this.scanlineIntensity = parseFloat(this.scanlineSlider.value);
-
-      // --- Web Audio API Setup ---
-      // Create context and analyser nodes on load
-      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      this.analyser = this.audioContext.createAnalyser();
-      this.analyser.fftSize = 256;
-      const bufferLength = this.analyser.frequencyBinCount;
-      this.frequencyData = new Uint8Array(bufferLength);
+      this.bpm = parseFloat(this.bpmSlider.value);
+      this.bpmValueSpan.textContent = this.bpm;
+      this.isGlitchEffectEnabled = this.glitchToggle.checked;
+      this.sphereDetail = parseInt(this.detailSlider.value);
+      this.detailValueSpan.textContent = this.sphereDetail;
 
       this.isConstructed = true; // All good, set flag
     }
@@ -227,7 +301,6 @@
      * Initializes the scene and event listeners.
      */
     init() {
-      // Add a check to see if constructor finished.
       if (!this.isConstructed) {
         console.error("Initialization failed: Constructor did not complete.");
         return;
@@ -240,14 +313,27 @@
     }
 
     /**
-     * Creates the 3D objects for the scene.
+     * Creates or recreates the 3D mesh.
      */
-    initScene() {
-      const geometry = new THREE.IcosahedronGeometry(2, 3);
-      // Set wireframe to true to see the lines
+    recreateMesh() {
+      if (this.mesh) {
+        this.scene.remove(this.mesh);
+        this.mesh.geometry.dispose();
+        this.mesh.material.dispose();
+      }
+
+      // Use radius 1, and detail from slider (as per user's last code)
+      const geometry = new THREE.IcosahedronGeometry(1, this.sphereDetail);
       const material = new THREE.MeshNormalMaterial({ wireframe: true });
       this.mesh = new THREE.Mesh(geometry, material);
       this.scene.add(this.mesh);
+    }
+
+    /**
+     * Creates the 3D objects for the scene.
+     */
+    initScene() {
+      this.recreateMesh(); // Call helper method
       this.camera.position.z = 5;
     }
 
@@ -257,70 +343,122 @@
     setupEventListeners() {
       window.addEventListener('resize', () => this.onWindowResize());
 
-      // Listen for file selection
-      this.audioFileInput.addEventListener('change', (e) => this.loadAudio(e));
-
-      // Listen for audio playback to initialize AudioContext
-      this.audioPlayer.addEventListener('play', () => this.initAudio());
-
-      // Listen for slider adjustments
-      /* // Removed threshold slider event listener
-      this.thresholdSlider.addEventListener('input', (e) => {
-          this.glitchThreshold = parseFloat(e.target.value);
-      });
-      */
       this.rotationSlider.addEventListener('input', (e) => {
         this.rotationSpeed = parseFloat(e.target.value);
       });
-      /* // Removed hue slider event listener
-      this.hueSlider.addEventListener('input', (e) => {
-          this.hueValue = parseFloat(e.target.value);
-      });
-      */
-      this.scanlineSlider.addEventListener('input', (e) => {
-        this.scanlineIntensity = parseFloat(e.target.value);
-      });
-    }
 
-    /**
-     * Loads the selected audio file into the audio player.
-     * @param {Event} event - The file input change event.
-     */
-    loadAudio(event) {
-      const file = event.target.files[0];
-      if (file) {
-        const url = URL.createObjectURL(file);
-        this.audioPlayer.src = url;
-        this.audioPlayer.load();
-      }
-    }
-
-    /**
-     * Initializes the Web Audio API graph.
-     * This is called by the 'play' event.
-     */
-    initAudio() {
-      // Connect the audio graph only once
-      if (!this.isAudioInitialized) {
-        try {
-          // Create audio source from the <audio> element
-          this.audioSource = this.audioContext.createMediaElementSource(this.audioPlayer);
-
-          // Connect the nodes: AudioPlayer -> Analyser -> Speakers
-          this.audioSource.connect(this.analyser);
-          this.analyser.connect(this.audioContext.destination);
-
-          this.isAudioInitialized = true;
-        } catch (err) {
-          console.error('Error connecting audio source:', err);
-          return;
+      this.bpmSlider.addEventListener('input', (e) => {
+        this.bpm = parseFloat(e.target.value);
+        if (this.bpmValueSpan) {
+          this.bpmValueSpan.textContent = this.bpm;
         }
+      });
+
+      this.detailSlider.addEventListener('input', (e) => {
+        this.sphereDetail = parseInt(e.target.value);
+        if (this.detailValueSpan) {
+          this.detailValueSpan.textContent = this.sphereDetail;
+        }
+        this.recreateMesh();
+      });
+
+      this.glitchToggle.addEventListener('change', (e) => {
+        this.isGlitchEffectEnabled = e.target.checked;
+        if (!this.isGlitchEffectEnabled && this.glitchPass) {
+          this.glitchPass.enabled = false;
+        }
+      });
+
+      this.toggleButton.addEventListener('click', () => {
+        if (this.controlsContent && this.arrowIcon) {
+          this.controlsContent.classList.toggle('max-h-0');
+          this.controlsContent.classList.toggle('opacity-0');
+          this.controlsContent.classList.toggle('max-h-screen'); // Allow full height
+          this.controlsContent.classList.toggle('opacity-100');
+          this.arrowIcon.classList.toggle('rotate-180');
+        }
+      });
+
+      // --- Add recording button listener ---
+      this.startRecordingButton.addEventListener('click', () => {
+        if (!this.isRecording) {
+          this.startRecording();
+        }
+      });
+    }
+
+    /**
+     * Starts the canvas recording process.
+     */
+    startRecording() {
+      if (this.isRecording) return;
+
+      this.isRecording = true;
+      this.recordedChunks = [];
+      this.recordingStatus.classList.remove('hidden');
+      this.startRecordingButton.disabled = true;
+      this.startRecordingButton.textContent = "Recording...";
+
+      const duration = parseInt(this.recordingDurationInput.value) * 1000; // in ms
+
+      const stream = this.renderer.domElement.captureStream(30); // 30 fps
+
+      // Try common mime types
+      const mimeTypes = [
+        'video/webm; codecs=vp9',
+        'video/webm; codecs=vp8',
+        'video/webm'
+      ];
+      const supportedMimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type));
+
+      if (!supportedMimeType) {
+        console.error("No supported MIME type for MediaRecorder");
+        this.stopRecording(); // Reset UI
+        return;
       }
 
-      // Always resume the context on play, as it might be suspended
-      if (this.audioContext.state === 'suspended') {
-        this.audioContext.resume();
-      }
+      this.mediaRecorder = new MediaRecorder(stream, { mimeType: supportedMimeType });
+
+      this.mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          this.recordedChunks.push(event.data);
+        }
+      };
+
+      this.mediaRecorder.onstop = () => {
+        this.downloadRecording();
+        this.isRecording = false;
+        this.recordingStatus.classList.add('hidden');
+        this.startRecordingButton.disabled = false;
+        this.startRecordingButton.textContent = "Start Recording";
+      };
+
+      this.mediaRecorder.start();
+
+      // Stop recording after the specified duration
+      setTimeout(() => {
+        if (this.isRecording && this.mediaRecorder) {
+          this.mediaRecorder.stop();
+        }
+      }, duration);
+    }
+
+    /**
+     * Downloads the recorded video blob.
+     */
+    downloadRecording() {
+      const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = 'glitch-visualizer.webm';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 100);
     }
 
     /**
@@ -330,7 +468,8 @@
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(window.innerWidth, window.innerHeight);
-      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      // Removed the cap of 2 to render at full native resolution for max crispness
+      this.renderer.setPixelRatio(window.devicePixelRatio);
       this.composer.setSize(window.innerWidth, window.innerHeight);
     }
 
@@ -338,60 +477,41 @@
      * The main animation loop, called every frame.
      */
     animate() {
-      // Bind the class context and request the next frame
+      // Must bind 'this' for requestAnimationFrame
       requestAnimationFrame(() => this.animate());
 
-      let averageFrequency = 0;
-
-      // Get audio data only if the audio graph is initialized
-      if (this.isAudioInitialized) {
-        this.analyser.getByteFrequencyData(this.frequencyData);
-
-        // --- Calculate Bass Level ---
-        // The first few bins of frequencyData hold the low-end (bass)
-        const BASS_BINS = 10; // Number of bins to average for bass
-        let bassSum = 0;
-        for (let i = 0; i < BASS_BINS; i++) {
-          bassSum += this.frequencyData[i];
-        }
-        averageFrequency = bassSum / BASS_BINS; // This is now the bass average
+      // --- Update Visuals ---
+      if (this.mesh) { // Add check in case mesh hasn't been created
+        this.mesh.rotation.x += this.rotationSpeed / 2.5;
+        this.mesh.rotation.y += this.rotationSpeed;
       }
 
-      // --- Update Visuals ---
-
-      // Rotate the mesh based on the slider value
-      this.mesh.rotation.x += this.rotationSpeed / 2.5;
-      this.mesh.rotation.y += this.rotationSpeed;
-
       // --- Update Effects Uniforms ---
+      const time = Date.now() * 0.0002;
+      this.hueValue = Math.sin(time);
 
-      // Automate hue shift
-      const time = Date.now() * 0.0002; // Get time and slow it down
-      this.hueValue = Math.sin(time); // Oscillates between -1 and 1
-
-      // Add checks to ensure pass and uniform exist before assignment
       if (this.huePass && this.huePass.uniforms['hue']) {
         this.huePass.uniforms['hue'].value = this.hueValue;
       }
 
-      if (this.filmPass && this.filmPass.uniforms['sIntensity']) {
-        this.filmPass.uniforms['sIntensity'].value = this.scanlineIntensity;
-      }
+      // --- Control Glitch Effect (BPM Logic) ---
+      if (this.isGlitchEffectEnabled && this.glitchPass) {
+        const now = Date.now();
+        const beatInterval = (60 / this.bpm) * 1000;
 
-      // --- Control Glitch Effect ---
-      // Set a fixed (non-slider) threshold for the bass trigger
-      const BASS_TRIGGER_LEVEL = 90; // (value from 0-255)
-
-      // Enable/disable the glitch pass based on bass level
-      if (this.glitchPass) {
-        if (averageFrequency > BASS_TRIGGER_LEVEL) {
-          this.glitchPass.enabled = true;
-        } else {
+        // Check if the glitch duration has passed
+        if (this.glitchPass.enabled && (now - this.lastBeatTime > this.glitchDuration)) {
           this.glitchPass.enabled = false;
+        }
+
+        // Check if a new beat should trigger
+        if (!this.glitchPass.enabled && (now - this.lastBeatTime >= beatInterval)) {
+          this.glitchPass.enabled = true;
+          this.lastBeatTime = now; // Set new beat time
         }
       }
 
-      // Render the scene through the effect composer
+      // Render the scene (which is necessary for the recorder to capture frames)
       this.composer.render();
     }
   }
@@ -404,6 +524,3 @@
 </script>
 </body>
 </html>
-
-
-
