@@ -51,6 +51,14 @@
       padding: 0.25rem 0.5rem;
       width: 60px;
     }
+    #controls select {
+      background-color: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 4px;
+      padding: 0.25rem 0.5rem;
+      width: 100%;
+      margin-bottom: 0.75rem;
+    }
     /* Style for disabled recording button */
     #start-recording-button:disabled {
       background-color: #4b5563; /* gray-600 */
@@ -62,7 +70,7 @@
 <canvas id="visualizer-canvas"></canvas>
 
 <!-- Updated Controls Section -->
-<div id="controls" class="text-white">
+<div id="controls" class="text-white max-h-screen flex flex-col">
   <!-- Toggle Button -->
   <button id="toggle-controls" class="flex items-center text-left">
     <!-- Arrow SVG Icon -->
@@ -72,24 +80,79 @@
   </button>
 
   <!-- Collapsible Content -->
-  <div id="controls-content" class="transition-all duration-300 ease-in-out max-h-0 opacity-0 overflow-hidden">
+  <div id="controls-content" class="transition-all duration-300 ease-in-out max-h-0 opacity-0 overflow-y-auto">
     <h2 class="text-lg font-semibold pt-2">Controls</h2> <!-- Added text here -->
     <div class="mt-4 space-y-4"> <!-- Added spacing for controls -->
 
-      <!-- Rotation Speed Slider -->
-      <div>
+      <!-- Auto-Rotate Toggle -->
+      <label for="auto-rotate-toggle" class="flex items-center justify-between cursor-pointer">
+        <span class="mr-3 text-sm">Auto-Rotate</span>
+        <div class="relative">
+          <input type="checkbox" id="auto-rotate-toggle" class="sr-only peer" checked>
+          <div class="w-14 h-8 bg-gray-600 rounded-full peer-checked:bg-purple-600 transition-colors"></div>
+          <div class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-full"></div>
+        </div>
+      </label>
+
+      <!-- Rotation Speed Slider (now in a container) -->
+      <div id="rotation-slider-container">
         <label for="rotation-slider">Rotation Speed</label>
         <input type="range" id="rotation-slider" min="0" max="0.05" step="0.001" value="0.005" class="w-full mb-2 cursor-pointer">
       </div>
 
-      <!-- Detail Slider -->
+      <!-- Shape Selector -->
       <div>
-        <label for="detail-slider">Sphere Detail</label>
-        <div class="flex justify-between items-center mb-2">
-          <input type="range" id="detail-slider" min="0" max="50" step="1" value="3" class="w-full cursor-pointer mr-3">
-          <span id="detail-value" class="text-sm text-gray-300 w-6 text-right">3</span>
+        <label for="shape-select">Shape</label>
+        <select id="shape-select">
+          <option value="Sphere">Sphere</option>
+          <option value="Box">Box</option>
+          <option value="Torus">Torus</option>
+          <option value="Cone">Cone</option>
+        </select>
+      </div>
+
+      <!-- Shape-Specific Controls Container -->
+      <div id="shape-controls-container">
+        <!-- Sphere Controls -->
+        <div id="sphere-controls">
+          <label for="detail-slider">Sphere Detail</label>
+          <div class="flex justify-between items-center mb-2">
+            <input type="range" id="detail-slider" min="0" max="50" step="1" value="3" class="w-full cursor-pointer mr-3">
+            <span id="detail-value" class="text-sm text-gray-300 w-6 text-right">3</span>
+          </div>
+        </div>
+        <!-- Box Controls -->
+        <div id="box-controls" class="hidden">
+          <label for="box-segments-slider">Box Segments</label>
+          <div class="flex justify-between items-center mb-2">
+            <input type="range" id="box-segments-slider" min="1" max="50" step="1" value="1" class="w-full cursor-pointer mr-3">
+            <span id="box-segments-value" class="text-sm text-gray-300 w-6 text-right">1</span>
+          </div>
+        </div>
+        <!-- Torus Controls -->
+        <div id="torus-controls" class="hidden">
+          <label for="torus-radial-slider">Torus Radial Segments</label>
+          <div class="flex justify-between items-center mb-2">
+            <input type="range" id="torus-radial-slider" min="3" max="100" step="1" value="16" class="w-full cursor-pointer mr-3">
+            <span id="torus-radial-value" class="text-sm text-gray-300 w-6 text-right">16</span>
+          </div>
+          <label for="torus-tubular-slider">Torus Tubular Segments</label>
+          <div class="flex justify-between items-center mb-2">
+            <input type="range" id="torus-tubular-slider" min="3" max="100" step="1" value="100" class="w-full cursor-pointer mr-3">
+            <span id="torus-tubular-value" class="text-sm text-gray-300 w-6 text-right">100</span>
+          </div>
+        </div>
+        <!-- Cone Controls -->
+        <div id="cone-controls" class="hidden">
+          <label for="cone-segments-slider">Cone Radial Segments</label>
+          <div class="flex justify-between items-center mb-2">
+            <input type="range" id="cone-segments-slider" min="3" max="100" step="1" value="32" class="w-full cursor-pointer mr-3">
+            <span id="cone-segments-value" class="text-sm text-gray-300 w-6 text-right">32</span>
+          </div>
         </div>
       </div>
+      <!-- End Shape-Specific Controls -->
+
 
       <!-- BPM Slider -->
       <div>
@@ -110,15 +173,59 @@
         </div>
       </label>
 
+      <!-- MONOCHROME TOGGLE -->
+      <label for="monochrome-toggle" class="flex items-center cursor-pointer">
+        <span class="mr-3 text-sm">Monochrome</span>
+        <div class="relative">
+          <input type="checkbox" id="monochrome-toggle" class="sr-only peer">
+          <div class="w-14 h-8 bg-gray-600 rounded-full peer-checked:bg-purple-600 transition-colors"></div>
+          <div class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-full"></div>
+        </div>
+      </label>
+
+      <!-- SMOOTH SURFACE TOGGLE -->
+      <label for="smooth-surface-toggle" class="flex items-center cursor-pointer">
+        <span class="mr-3 text-sm">Smooth Surface</span>
+        <div class="relative">
+          <input type="checkbox" id="smooth-surface-toggle" class="sr-only peer">
+          <div class="w-14 h-8 bg-gray-600 rounded-full peer-checked:bg-purple-600 transition-colors"></div>
+          <div class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-full"></div>
+        </div>
+      </label>
+
       <!-- Recording Section -->
       <div class="pt-4 border-t border-gray-600">
-        <h3 class="text-md font-semibold mb-2">Recording</h3>
+        <h3 class="text-md font-semibold mb-2">Recording & Saving</h3>
         <div class="flex items-center justify-between mb-2">
           <label for="recording-duration" class="text-sm">Duration (sec):</label>
           <input type="number" id="recording-duration" min="1" max="60" value="10" class="text-white text-sm">
         </div>
         <button id="start-recording-button" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded transition-colors">
           Start Recording
+        </button>
+
+        <!-- IMAGE ORIENTATION TOGGLE -->
+        <label for="image-orientation-toggle" class="flex items-center justify-between cursor-pointer mt-4">
+          <span class="mr-3 text-sm">Portrait Image (9:16)</span>
+          <div class="relative">
+            <input type="checkbox" id="image-orientation-toggle" class="sr-only peer">
+            <div class="w-14 h-8 bg-gray-600 rounded-full peer-checked:bg-blue-600 transition-colors"></div>
+            <div class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-full"></div>
+          </div>
+        </label>
+
+        <!-- TRANSPARENT BG TOGGLE -->
+        <label for="transparent-bg-toggle" class="flex items-center justify-between cursor-pointer mt-2">
+          <span class="mr-3 text-sm">Transparent Background</span>
+          <div class="relative">
+            <input type="checkbox" id="transparent-bg-toggle" class="sr-only peer">
+            <div class="w-14 h-8 bg-gray-600 rounded-full peer-checked:bg-blue-600 transition-colors"></div>
+            <div class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-full"></div>
+          </div>
+        </label>
+
+        <button id="save-image-button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors mt-2">
+          Save Image
         </button>
         <span id="recording-status" class="text-sm text-yellow-300 mt-2 hidden">Recording...</span>
         <p class="text-xs text-gray-400 mt-2">Saves a .webm file. Use an online converter if you need .mp4.</p>
@@ -149,6 +256,7 @@
   import { GlitchPass } from 'three/addons/postprocessing/GlitchPass.js';
   import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
   import { HueSaturationShader } from 'three/addons/shaders/HueSaturationShader.js';
+  import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 
   /**
    * Main class for the Glitch Visualizer application.
@@ -166,11 +274,56 @@
     glitchPass;
     /** @type {ShaderPass} */
     huePass;
+    /** @type {SMAAPass} */
+    smaaPass;
     /** @type {THREE.Mesh} */
     mesh;
 
+    // --- Rotation Controls ---
+    /** @type {HTMLInputElement} */
+    autoRotateToggle;
     /** @type {HTMLInputElement} */
     rotationSlider;
+    /** @type {HTMLDivElement} */
+    rotationSliderContainer;
+    /** @type {boolean} */
+    isAutoRotate = true;
+
+    // --- Shape Controls ---
+    /** @type {HTMLSelectElement} */
+    shapeSelect;
+    /** @type {string} */
+    currentShape = 'Sphere';
+    /** @type {HTMLDivElement} */
+    sphereControls;
+    /** @type {HTMLInputElement} */
+    detailSlider;
+    /** @type {HTMLSpanElement} */
+    detailValueSpan;
+    /** @type {HTMLDivElement} */
+    boxControls;
+    /** @type {HTMLInputElement} */
+    boxSegmentsSlider;
+    /** @type {HTMLSpanElement} */
+    boxSegmentsValue;
+    /** @type {HTMLDivElement} */
+    torusControls;
+    /** @type {HTMLInputElement} */
+    torusRadialSlider;
+    /** @type {HTMLSpanElement} */
+    torusRadialValue;
+    /** @type {HTMLInputElement} */
+    torusTubularSlider;
+    /** @type {HTMLSpanElement} */
+    torusTubularValue;
+    /** @type {HTMLDivElement} */
+    coneControls;
+    /** @type {HTMLInputElement} */
+    coneSegmentsSlider;
+    /** @type {HTMLSpanElement} */
+    coneSegmentsValue;
+
+    // --- Other Controls ---
     /** @type {HTMLInputElement} */
     bpmSlider;
     /** @type {HTMLSpanElement} */
@@ -178,9 +331,10 @@
     /** @type {HTMLInputElement} */
     glitchToggle;
     /** @type {HTMLInputElement} */
-    detailSlider;
-    /** @type {HTMLSpanElement} */
-    detailValueSpan;
+    monochromeToggle;
+    /** @type {HTMLInputElement} */ // <-- ADDED PROPERTY
+    smoothSurfaceToggle; // <-- ADDED PROPERTY
+
 
     // --- New UI elements for collapsible controls ---
     /** @type {HTMLButtonElement} */
@@ -196,6 +350,12 @@
     recordingDurationInput;
     /** @type {HTMLButtonElement} */
     startRecordingButton;
+    /** @type {HTMLButtonElement} */
+    saveImageButton;
+    /** @type {HTMLInputElement} */
+    imageOrientationToggle;
+    /** @type {HTMLInputElement} */
+    transparentBgToggle;
     /** @type {HTMLSpanElement} */
     recordingStatus;
     /** @type {MediaRecorder | null} */
@@ -204,14 +364,35 @@
     recordedChunks = [];
     /** @type {boolean} */
     isRecording = false;
+    /** @type {boolean} */
+    isPortraitMode = false;
+    /** @type {boolean} */
+    isTransparentBackground = false;
+    /** @type {boolean} */
+    isMonochrome = false;
+    /** @type {boolean} */ // <-- ADDED PROPERTY
+    isSmoothSurface = false; // <-- ADDED PROPERTY
+    /** @type {number | undefined} */
+    originalRecordingAlpha;
     // --- End Recording Properties ---
 
     /** @type {number} */
     rotationSpeed = 0.005;
     /** @type {number} */
     hueValue = 0;
+
+    // --- Shape Detail Properties ---
     /** @type {number} */
     sphereDetail = 3;
+    /** @type {number} */
+    boxSegments = 1;
+    /** @type {number} */
+    torusRadialSeg = 16;
+    /** @type {number} */
+    torusTubularSeg = 100;
+    /** @type {number} */
+    coneRadialSeg = 32;
+
 
     // --- BPM and Glitch Timing Properties ---
     /** @type {number} */
@@ -237,12 +418,17 @@
       // --- Three.js Setup ---
       this.scene = new THREE.Scene();
       this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-      // CRITICAL: Added preserveDrawingBuffer: true for recording
+
       this.renderer = new THREE.WebGLRenderer({
         canvas: canvas,
         antialias: true,
-        preserveDrawingBuffer: true
+        preserveDrawingBuffer: true,
+        alpha: true // <-- ENABLED ALPHA
       });
+
+      this.renderer.setPixelRatio(window.devicePixelRatio);
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+
 
       // --- Post-processing (Effect) Setup ---
       this.composer = new EffectComposer(this.renderer);
@@ -257,14 +443,47 @@
       // Hue Pass
       this.huePass = new ShaderPass(HueSaturationShader);
       this.composer.addPass(this.huePass);
+      // Note: huePass.enabled is set after controls are initialized
+
+      // --- ADDED SMAA PASS for Anti-Aliasing ---
+      const pixelRatio = this.renderer.getPixelRatio();
+      this.smaaPass = new SMAAPass(
+        window.innerWidth * pixelRatio,
+        window.innerHeight * pixelRatio
+      );
+      this.composer.addPass(this.smaaPass);
+      // --- END OF ADDED SECTION ---
 
       // --- UI Elements ---
+      this.autoRotateToggle = document.getElementById('auto-rotate-toggle');
+      this.rotationSliderContainer = document.getElementById('rotation-slider-container');
       this.rotationSlider = document.getElementById('rotation-slider');
+
+      this.shapeSelect = document.getElementById('shape-select');
+
+      this.sphereControls = document.getElementById('sphere-controls');
+      this.detailSlider = document.getElementById('detail-slider');
+      this.detailValueSpan = document.getElementById('detail-value');
+
+      this.boxControls = document.getElementById('box-controls');
+      this.boxSegmentsSlider = document.getElementById('box-segments-slider');
+      this.boxSegmentsValue = document.getElementById('box-segments-value');
+
+      this.torusControls = document.getElementById('torus-controls');
+      this.torusRadialSlider = document.getElementById('torus-radial-slider');
+      this.torusRadialValue = document.getElementById('torus-radial-value');
+      this.torusTubularSlider = document.getElementById('torus-tubular-slider');
+      this.torusTubularValue = document.getElementById('torus-tubular-value');
+
+      this.coneControls = document.getElementById('cone-controls');
+      this.coneSegmentsSlider = document.getElementById('cone-segments-slider');
+      this.coneSegmentsValue = document.getElementById('cone-segments-value');
+
       this.bpmSlider = document.getElementById('bpm-slider');
       this.bpmValueSpan = document.getElementById('bpm-value');
       this.glitchToggle = document.getElementById('glitch-toggle');
-      this.detailSlider = document.getElementById('detail-slider');
-      this.detailValueSpan = document.getElementById('detail-value');
+      this.monochromeToggle = document.getElementById('monochrome-toggle');
+      this.smoothSurfaceToggle = document.getElementById('smooth-surface-toggle'); // <-- GET ELEMENT
 
       this.toggleButton = document.getElementById('toggle-controls');
       this.controlsContent = document.getElementById('controls-content');
@@ -273,26 +492,54 @@
       // --- Get Recording UI Elements ---
       this.recordingDurationInput = document.getElementById('recording-duration');
       this.startRecordingButton = document.getElementById('start-recording-button');
+      this.saveImageButton = document.getElementById('save-image-button');
+      this.imageOrientationToggle = document.getElementById('image-orientation-toggle');
+      this.transparentBgToggle = document.getElementById('transparent-bg-toggle');
       this.recordingStatus = document.getElementById('recording-status');
 
       // Check if all UI elements were found
-      if (!this.rotationSlider ||
+      if (
+        !this.autoRotateToggle || !this.rotationSliderContainer || !this.rotationSlider ||
+        !this.shapeSelect ||
+        !this.sphereControls || !this.detailSlider || !this.detailValueSpan ||
+        !this.boxControls || !this.boxSegmentsSlider || !this.boxSegmentsValue ||
+        !this.torusControls || !this.torusRadialSlider || !this.torusRadialValue || !this.torusTubularSlider || !this.torusTubularValue ||
+        !this.coneControls || !this.coneSegmentsSlider || !this.coneSegmentsValue ||
         !this.bpmSlider || !this.bpmValueSpan ||
-        !this.glitchToggle ||
-        !this.detailSlider || !this.detailValueSpan ||
+        !this.glitchToggle || !this.monochromeToggle ||
+        !this.smoothSurfaceToggle || // <-- ADD TO CHECK
         !this.toggleButton || !this.controlsContent || !this.arrowIcon ||
-        !this.recordingDurationInput || !this.startRecordingButton || !this.recordingStatus) { // --- Added recording UI check ---
+        !this.recordingDurationInput || !this.startRecordingButton || !this.recordingStatus ||
+        !this.saveImageButton || !this.imageOrientationToggle || !this.transparentBgToggle
+      ) {
         console.error("Initialization Error: One or more UI elements not found!");
         return; // Return early, isConstructed will be false
       }
 
       // Set initial values from controls
+      this.isAutoRotate = this.autoRotateToggle.checked;
+      this.rotationSliderContainer.style.display = this.isAutoRotate ? 'none' : 'block';
       this.rotationSpeed = parseFloat(this.rotationSlider.value);
+
+      this.currentShape = this.shapeSelect.value;
+      this.sphereDetail = parseInt(this.detailSlider.value);
+      this.boxSegments = parseInt(this.boxSegmentsSlider.value);
+      this.torusRadialSeg = parseInt(this.torusRadialSlider.value);
+      this.torusTubularSeg = parseInt(this.torusTubularSlider.value);
+      this.coneRadialSeg = parseInt(this.coneSegmentsSlider.value);
+
       this.bpm = parseFloat(this.bpmSlider.value);
       this.bpmValueSpan.textContent = this.bpm;
       this.isGlitchEffectEnabled = this.glitchToggle.checked;
-      this.sphereDetail = parseInt(this.detailSlider.value);
-      this.detailValueSpan.textContent = this.sphereDetail;
+
+      this.isPortraitMode = this.imageOrientationToggle.checked;
+      this.isTransparentBackground = this.transparentBgToggle.checked;
+      this.isMonochrome = this.monochromeToggle.checked;
+      this.isSmoothSurface = this.smoothSurfaceToggle.checked; // <-- SET INITIAL VALUE
+
+      this.huePass.enabled = !this.isMonochrome;
+
+      this.updateShapeControls(); // Set initial control visibility
 
       this.isConstructed = true; // All good, set flag
     }
@@ -313,18 +560,87 @@
     }
 
     /**
+     * Hides/shows the correct detail sliders based on the selected shape.
+     */
+    updateShapeControls() {
+      this.sphereControls.classList.add('hidden');
+      this.boxControls.classList.add('hidden');
+      this.torusControls.classList.add('hidden');
+      this.coneControls.classList.add('hidden');
+
+      switch (this.currentShape) {
+        case 'Box':
+          this.boxControls.classList.remove('hidden');
+          break;
+        case 'Torus':
+          this.torusControls.classList.remove('hidden');
+          break;
+        case 'Cone':
+          this.coneControls.classList.remove('hidden');
+          break;
+        case 'Sphere':
+        default:
+          this.sphereControls.classList.remove('hidden');
+          break;
+      }
+    }
+
+    /**
      * Creates or recreates the 3D mesh.
      */
     recreateMesh() {
       if (this.mesh) {
         this.scene.remove(this.mesh);
         this.mesh.geometry.dispose();
-        this.mesh.material.dispose();
+        // Check if material is an array or single
+        if (Array.isArray(this.mesh.material)) {
+          this.mesh.material.forEach(m => m.dispose());
+        } else {
+          this.mesh.material.dispose();
+        }
       }
 
-      // Use radius 1, and detail from slider (as per user's last code)
-      const geometry = new THREE.IcosahedronGeometry(1, this.sphereDetail);
-      const material = new THREE.MeshNormalMaterial({ wireframe: true });
+      let geometry;
+
+      // --- UPDATED GEOMETRY LOGIC ---
+      switch (this.currentShape) {
+        case 'Box':
+          const seg = this.boxSegments;
+          geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5, seg, seg, seg);
+          break;
+        case 'Torus':
+          geometry = new THREE.TorusGeometry(1, 0.4, this.torusRadialSeg, this.torusTubularSeg);
+          break;
+        case 'Cone':
+          // For smooth cone, we need to set flatShading to false
+          geometry = new THREE.ConeGeometry(1, 2, this.coneRadialSeg, 1, false, 0, Math.PI * 2);
+          break;
+        case 'Sphere':
+        default:
+          geometry = new THREE.IcosahedronGeometry(1, this.sphereDetail);
+          break;
+      }
+      // --- END GEOMETRY UPDATE ---
+
+
+      // --- UPDATED MATERIAL LOGIC ---
+      let material;
+      const wireframe = !this.isSmoothSurface;
+
+      if (this.isMonochrome) {
+        material = new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+          wireframe: wireframe
+        });
+      } else {
+        material = new THREE.MeshNormalMaterial({
+          wireframe: wireframe,
+          // Flat shading looks better on the solid normal material
+          flatShading: this.isSmoothSurface
+        });
+      }
+      // --- END UPDATE ---
+
       this.mesh = new THREE.Mesh(geometry, material);
       this.scene.add(this.mesh);
     }
@@ -343,23 +659,71 @@
     setupEventListeners() {
       window.addEventListener('resize', () => this.onWindowResize());
 
+      // --- Rotation Listeners ---
+      this.autoRotateToggle.addEventListener('change', (e) => {
+        this.isAutoRotate = e.target.checked;
+        this.rotationSliderContainer.style.display = this.isAutoRotate ? 'none' : 'block';
+      });
       this.rotationSlider.addEventListener('input', (e) => {
         this.rotationSpeed = parseFloat(e.target.value);
       });
 
-      this.bpmSlider.addEventListener('input', (e) => {
-        this.bpm = parseFloat(e.target.value);
-        if (this.bpmValueSpan) {
-          this.bpmValueSpan.textContent = this.bpm;
-        }
+      // --- Shape Listeners ---
+      this.shapeSelect.addEventListener('change', (e) => {
+        this.currentShape = e.target.value;
+        this.updateShapeControls();
+        this.recreateMesh();
       });
 
+      // Sphere
       this.detailSlider.addEventListener('input', (e) => {
         this.sphereDetail = parseInt(e.target.value);
         if (this.detailValueSpan) {
           this.detailValueSpan.textContent = this.sphereDetail;
         }
         this.recreateMesh();
+      });
+
+      // Box
+      this.boxSegmentsSlider.addEventListener('input', (e) => {
+        this.boxSegments = parseInt(e.target.value);
+        if (this.boxSegmentsValue) {
+          this.boxSegmentsValue.textContent = this.boxSegments;
+        }
+        this.recreateMesh();
+      });
+
+      // Torus
+      this.torusRadialSlider.addEventListener('input', (e) => {
+        this.torusRadialSeg = parseInt(e.target.value);
+        if (this.torusRadialValue) {
+          this.torusRadialValue.textContent = this.torusRadialSeg;
+        }
+        this.recreateMesh();
+      });
+      this.torusTubularSlider.addEventListener('input', (e) => {
+        this.torusTubularSeg = parseInt(e.target.value);
+        if (this.torusTubularValue) {
+          this.torusTubularValue.textContent = this.torusTubularSeg;
+        }
+        this.recreateMesh();
+      });
+
+      // Cone
+      this.coneSegmentsSlider.addEventListener('input', (e) => {
+        this.coneRadialSeg = parseInt(e.target.value);
+        if (this.coneSegmentsValue) {
+          this.coneSegmentsValue.textContent = this.coneRadialSeg;
+        }
+        this.recreateMesh();
+      });
+
+      // --- Other Control Listeners ---
+      this.bpmSlider.addEventListener('input', (e) => {
+        this.bpm = parseFloat(e.target.value);
+        if (this.bpmValueSpan) {
+          this.bpmValueSpan.textContent = this.bpm;
+        }
       });
 
       this.glitchToggle.addEventListener('change', (e) => {
@@ -373,7 +737,7 @@
         if (this.controlsContent && this.arrowIcon) {
           this.controlsContent.classList.toggle('max-h-0');
           this.controlsContent.classList.toggle('opacity-0');
-          this.controlsContent.classList.toggle('max-h-screen'); // Allow full height
+          this.controlsContent.classList.toggle('flex-1'); // Allow flexible growth
           this.controlsContent.classList.toggle('opacity-100');
           this.arrowIcon.classList.toggle('rotate-180');
         }
@@ -385,6 +749,34 @@
           this.startRecording();
         }
       });
+
+      // --- ADDED SAVE IMAGE LISTENER ---
+      this.saveImageButton.addEventListener('click', () => {
+        this.saveImage();
+      });
+
+      // --- ADDED ORIENTATION TOGGLE LISTENER ---
+      this.imageOrientationToggle.addEventListener('change', (e) => {
+        this.isPortraitMode = e.target.checked;
+      });
+
+      // --- ADDED TRANSPARENT BG LISTENER ---
+      this.transparentBgToggle.addEventListener('change', (e) => {
+        this.isTransparentBackground = e.target.checked;
+      });
+
+      // --- ADDED MONOCHROME LISTENER ---
+      this.monochromeToggle.addEventListener('change', (e) => {
+        this.isMonochrome = e.target.checked;
+        this.huePass.enabled = !this.isMonochrome; // Toggle hue effect
+        this.recreateMesh(); // Rebuild mesh with new material
+      });
+
+      // --- ADDED SMOOTH SURFACE LISTENER ---
+      this.smoothSurfaceToggle.addEventListener('change', (e) => {
+        this.isSmoothSurface = e.target.checked;
+        this.recreateMesh(); // Rebuild mesh with new material
+      });
     }
 
     /**
@@ -392,6 +784,14 @@
      */
     startRecording() {
       if (this.isRecording) return;
+
+      // --- ADDED ---
+      // Set transparent background for recording if toggled
+      if (this.isTransparentBackground) {
+        this.originalRecordingAlpha = this.renderer.getClearAlpha();
+        this.renderer.setClearAlpha(0);
+      }
+      // --- END ADDED ---
 
       this.isRecording = true;
       this.recordedChunks = [];
@@ -413,7 +813,18 @@
 
       if (!supportedMimeType) {
         console.error("No supported MIME type for MediaRecorder");
-        this.stopRecording(); // Reset UI
+
+        // --- ADDED RESET LOGIC ---
+        this.isRecording = false;
+        this.recordingStatus.classList.add('hidden');
+        this.startRecordingButton.disabled = false;
+        this.startRecordingButton.textContent = "Start Recording";
+        // Restore alpha if we changed it
+        if (this.originalRecordingAlpha !== undefined) {
+          this.renderer.setClearAlpha(this.originalRecordingAlpha);
+          this.originalRecordingAlpha = undefined;
+        }
+        // --- END ADDED ---
         return;
       }
 
@@ -431,6 +842,14 @@
         this.recordingStatus.classList.add('hidden');
         this.startRecordingButton.disabled = false;
         this.startRecordingButton.textContent = "Start Recording";
+
+        // --- ADDED ---
+        // Restore alpha if we changed it for recording
+        if (this.originalRecordingAlpha !== undefined) {
+          this.renderer.setClearAlpha(this.originalRecordingAlpha);
+          this.originalRecordingAlpha = undefined; // Clear it
+        }
+        // --- END ADDED ---
       };
 
       this.mediaRecorder.start();
@@ -449,28 +868,119 @@
     downloadRecording() {
       const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
       const url = URL.createObjectURL(blob);
+      this.downloadDataURL(url, 'glitch-visualizer.webm');
+    }
+
+    /**
+     * Helper function to trigger a download for a Data URL.
+     * @param {string} dataURL The data URL (or object URL) to download.
+     * @param {string} filename The desired filename.
+     */
+    downloadDataURL(dataURL, filename) {
       const a = document.createElement('a');
       a.style.display = 'none';
-      a.href = url;
-      a.download = 'glitch-visualizer.webm';
+      a.href = dataURL;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       setTimeout(() => {
         document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
+        if (dataURL.startsWith('blob:')) {
+          window.URL.revokeObjectURL(dataURL); // Clean up blob URLs
+        }
       }, 100);
+    }
+
+
+    /**
+     * Saves a high-resolution snapshot of the canvas.
+     * This logic is updated to handle transparency.
+     */
+    saveImage() {
+      try {
+        const originalAlpha = this.renderer.getClearAlpha();
+        if (this.isTransparentBackground) {
+          this.renderer.setClearAlpha(0);
+        }
+
+        const filename = `glitch-visualizer-${this.isPortraitMode ? 'portrait' : 'landscape'}${this.isTransparentBackground ? '-transparent' : ''}.png`;
+
+        if (!this.isPortraitMode) {
+          // --- Standard Landscape Save ---
+          if (this.isTransparentBackground) {
+            // Force a re-render with the new clear alpha
+            this.composer.render();
+          }
+          const dataURL = this.renderer.domElement.toDataURL('image/png');
+          this.downloadDataURL(dataURL, filename);
+
+        } else {
+          // --- Portrait Mode Save ---
+          const originalWidth = window.innerWidth;
+          const originalHeight = window.innerHeight;
+          const newHeight = originalHeight;
+          const newWidth = Math.floor(newHeight * (9 / 16));
+
+          try {
+            // 1. Resize renderer and camera
+            this.updateSizes(newWidth, newHeight);
+
+            // 2. Render one frame at new size (will use new alpha if set)
+            this.composer.render();
+
+            // 3. Get data URL from the resized canvas
+            const dataURL = this.renderer.domElement.toDataURL('image/png');
+            this.downloadDataURL(dataURL, filename);
+
+          } catch (e) {
+            console.error("Error saving portrait image:", e);
+          } finally {
+            // 4. ALWAYS restore original size
+            this.updateSizes(originalWidth, originalHeight);
+          }
+        }
+
+        // 5. Restore original clear alpha if we changed it
+        if (this.isTransparentBackground) {
+          this.renderer.setClearAlpha(originalAlpha);
+        }
+
+      } catch (e) {
+        console.error("Error saving image:", e);
+      }
     }
 
     /**
      * Handles window resize events to keep the visualizer fullscreen.
      */
     onWindowResize() {
-      this.camera.aspect = window.innerWidth / window.innerHeight;
+      this.updateSizes(window.innerWidth, window.innerHeight);
+    }
+
+    /**
+     * Reusable function to update all size-dependent components.
+     * @param {number} width The new width (in CSS pixels).
+     * @param {number} height The new height (in CSS pixels).
+     */
+    updateSizes(width, height) {
+      const pixelRatio = this.renderer.getPixelRatio();
+      const canvasWidth = Math.floor(width * pixelRatio);
+      const canvasHeight = Math.floor(height * pixelRatio);
+
+      this.camera.aspect = width / height;
       this.camera.updateProjectionMatrix();
-      this.renderer.setSize(window.innerWidth, window.innerHeight);
-      // Removed the cap of 2 to render at full native resolution for max crispness
-      this.renderer.setPixelRatio(window.devicePixelRatio);
-      this.composer.setSize(window.innerWidth, window.innerHeight);
+
+      // Note: setSize handles the pixelRatio internally when not updating style
+      this.renderer.setSize(width, height);
+      // We still pass the non-multiplied size to setSize,
+      // as it uses setPixelRatio internally.
+
+      this.composer.setSize(width, height);
+
+      if (this.smaaPass) {
+        // SMAAPass, however, needs the *actual* canvas dimensions
+        this.smaaPass.setSize(canvasWidth, canvasHeight);
+      }
     }
 
     /**
@@ -480,6 +990,13 @@
       // Must bind 'this' for requestAnimationFrame
       requestAnimationFrame(() => this.animate());
 
+      // --- Update Rotation Speed ---
+      if (this.isAutoRotate) {
+        // Oscillates between 0.002 and 0.042
+        this.rotationSpeed = (Math.sin(Date.now() * 0.0005) + 2) * 0.05;
+      }
+      // If auto-rotate is off, this.rotationSpeed is set by the slider's event listener
+
       // --- Update Visuals ---
       if (this.mesh) { // Add check in case mesh hasn't been created
         this.mesh.rotation.x += this.rotationSpeed / 2.5;
@@ -487,12 +1004,14 @@
       }
 
       // --- Update Effects Uniforms ---
-      const time = Date.now() * 0.0002;
-      this.hueValue = Math.sin(time);
+      if (this.huePass.enabled) { // <-- ADDED CHECK
+        const time = Date.now() * 0.0002;
+        this.hueValue = Math.sin(time);
 
-      if (this.huePass && this.huePass.uniforms['hue']) {
-        this.huePass.uniforms['hue'].value = this.hueValue;
-      }
+        if (this.huePass.uniforms['hue']) {
+          this.huePass.uniforms['hue'].value = this.hueValue;
+        }
+      } // <-- END CHECK
 
       // --- Control Glitch Effect (BPM Logic) ---
       if (this.isGlitchEffectEnabled && this.glitchPass) {
