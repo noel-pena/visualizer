@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Glitch Visualizer</title>
+  <title>Glitch Visualizer v2</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     html, body {
@@ -33,6 +33,9 @@
       z-index: 10;
       width: 300px;
       backdrop-filter: blur(5px);
+      max-height: 100vh; /* Ensure it doesn't overflow screen */
+      display: flex; /* Use flex for layout */
+      flex-direction: column; /* Stack children vertically */
     }
     #controls label {
       display: block;
@@ -72,7 +75,7 @@
 <!-- Updated Controls Section -->
 <div id="controls" class="text-white max-h-screen flex flex-col">
   <!-- Toggle Button -->
-  <button id="toggle-controls" class="flex items-center text-left">
+  <button id="toggle-controls" class="flex items-center text-left flex-shrink-0">
     <!-- Arrow SVG Icon -->
     <svg id="arrow-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 transition-transform duration-300 transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -100,6 +103,16 @@
         <input type="range" id="rotation-slider" min="0" max="0.05" step="0.001" value="0.005" class="w-full mb-2 cursor-pointer">
       </div>
 
+      <!-- AUTO-CAMERA TOGGLE -->
+      <label for="auto-camera-toggle" class="flex items-center justify-between cursor-pointer">
+        <span class="mr-3 text-sm">Auto-Camera</span>
+        <div class="relative">
+          <input type="checkbox" id="auto-camera-toggle" class="sr-only peer">
+          <div class="w-14 h-8 bg-gray-600 rounded-full peer-checked:bg-purple-600 transition-colors"></div>
+          <div class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-full"></div>
+        </div>
+      </label>
+
       <!-- Shape Selector -->
       <div>
         <label for="shape-select">Shape</label>
@@ -110,6 +123,26 @@
           <option value="Cone">Cone</option>
         </select>
       </div>
+
+      <!-- MATERIAL SELECTOR -->
+      <div>
+        <label for="material-select">Material</label>
+        <select id="material-select">
+          <option value="Hue">Hue (Normal)</option>
+          <option value="Monochrome">Monochrome</option>
+          <option value="Lit">Lit (White)</option>
+        </select>
+      </div>
+
+      <!-- SMOOTH SURFACE TOGGLE -->
+      <label for="smooth-surface-toggle" class="flex items-center cursor-pointer">
+        <span class="mr-3 text-sm">Smooth Surface</span>
+        <div class="relative">
+          <input type="checkbox" id="smooth-surface-toggle" class="sr-only peer">
+          <div class="w-14 h-8 bg-gray-600 rounded-full peer-checked:bg-purple-600 transition-colors"></div>
+          <div class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-full"></div>
+        </div>
+      </label>
 
       <!-- Shape-Specific Controls Container -->
       <div id="shape-controls-container">
@@ -153,45 +186,40 @@
       </div>
       <!-- End Shape-Specific Controls -->
 
+      <!-- --- EFFECTS CONTROLS --- -->
+      <div class="pt-4 border-t border-gray-600">
+        <h3 class="text-md font-semibold mb-2">Effects</h3>
+        <!-- BPM Slider -->
+        <div>
+          <label for="bpm-slider">BPM</label>
+          <div class="flex justify-between items-center mb-2">
+            <input type="range" id="bpm-slider" min="60" max="180" step="1" value="120" class="w-full cursor-pointer mr-3">
+            <span id="bpm-value" class="text-sm text-gray-300 w-6 text-right">120</span>
+          </div>
+        </div>
 
-      <!-- BPM Slider -->
-      <div>
-        <label for="bpm-slider">BPM</label>
-        <div class="flex justify-between items-center mb-2">
-          <input type="range" id="bpm-slider" min="60" max="180" step="1" value="120" class="w-full cursor-pointer mr-3">
-          <span id="bpm-value" class="text-sm text-gray-300 w-6 text-right">120</span>
+        <!-- BPM PULSE Toggle Switch -->
+        <label for="pulse-effects-toggle" class="flex items-center cursor-pointer">
+          <span class="mr-3 text-sm">BPM Pulse Effects</span>
+          <div class="relative">
+            <input type="checkbox" id="pulse-effects-toggle" class="sr-only peer" checked>
+            <div class="w-14 h-8 bg-gray-600 rounded-full peer-checked:bg-purple-600 transition-colors"></div>
+            <div class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-full"></div>
+          </div>
+        </label>
+
+        <!-- Film Grain Sliders -->
+        <div class="mt-4">
+          <label for="film-noise-slider">Film Noise</label>
+          <input type="range" id="film-noise-slider" min="0" max="2" step="0.05" value="0.2" class="w-full mb-2 cursor-pointer">
+        </div>
+        <div>
+          <label for="film-scanline-slider">Film Scanlines</label>
+          <input type="range" id="film-scanline-slider" min="0" max="1" step="0.01" value="0.1" class="w-full mb-2 cursor-pointer">
         </div>
       </div>
+      <!-- --- END EFFECTS CONTROLS --- -->
 
-      <!-- Glitch Toggle Switch -->
-      <label for="glitch-toggle" class="flex items-center cursor-pointer">
-        <span class="mr-3 text-sm">Glitch Effect</span>
-        <div class="relative">
-          <input type="checkbox" id="glitch-toggle" class="sr-only peer" checked>
-          <div class="w-14 h-8 bg-gray-600 rounded-full peer-checked:bg-purple-600 transition-colors"></div>
-          <div class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-full"></div>
-        </div>
-      </label>
-
-      <!-- MONOCHROME TOGGLE -->
-      <label for="monochrome-toggle" class="flex items-center cursor-pointer">
-        <span class="mr-3 text-sm">Monochrome</span>
-        <div class="relative">
-          <input type="checkbox" id="monochrome-toggle" class="sr-only peer">
-          <div class="w-14 h-8 bg-gray-600 rounded-full peer-checked:bg-purple-600 transition-colors"></div>
-          <div class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-full"></div>
-        </div>
-      </label>
-
-      <!-- SMOOTH SURFACE TOGGLE -->
-      <label for="smooth-surface-toggle" class="flex items-center cursor-pointer">
-        <span class="mr-3 text-sm">Smooth Surface</span>
-        <div class="relative">
-          <input type="checkbox" id="smooth-surface-toggle" class="sr-only peer">
-          <div class="w-14 h-8 bg-gray-600 rounded-full peer-checked:bg-purple-600 transition-colors"></div>
-          <div class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-full"></div>
-        </div>
-      </label>
 
       <!-- Recording Section -->
       <div class="pt-4 border-t border-gray-600">
@@ -257,6 +285,10 @@
   import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
   import { HueSaturationShader } from 'three/addons/shaders/HueSaturationShader.js';
   import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+  // --- NEW IMPORTS ---
+  import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
+  import { RGBShiftShader } from 'three/addons/shaders/RGBShiftShader.js';
+  // --- END NEW IMPORTS ---
 
   /**
    * Main class for the Glitch Visualizer application.
@@ -278,6 +310,17 @@
     smaaPass;
     /** @type {THREE.Mesh} */
     mesh;
+    /** @type {THREE.PointLight} */
+    pointLight;
+    /** @type {THREE.AmbientLight} */
+    ambientLight;
+
+    // --- NEW EFFECT PASSES ---
+    /** @type {FilmPass} */
+    filmPass;
+    /** @type {ShaderPass} */
+    rgbShiftPass;
+    // --- END NEW EFFECT PASSES ---
 
     // --- Rotation Controls ---
     /** @type {HTMLInputElement} */
@@ -288,6 +331,12 @@
     rotationSliderContainer;
     /** @type {boolean} */
     isAutoRotate = true;
+
+    // --- Camera Controls ---
+    /** @type {HTMLInputElement} */
+    autoCameraToggle;
+    /** @type {boolean} */
+    isAutoCamera = false;
 
     // --- Shape Controls ---
     /** @type {HTMLSelectElement} */
@@ -328,12 +377,19 @@
     bpmSlider;
     /** @type {HTMLSpanElement} */
     bpmValueSpan;
+    /** @type {HTMLInputElement} */ // <-- RENAMED
+    pulseEffectsToggle;
+    /** @type {HTMLSelectElement} */
+    materialSelect;
     /** @type {HTMLInputElement} */
-    glitchToggle;
+    smoothSurfaceToggle;
+
+    // --- NEW EFFECT CONTROLS ---
     /** @type {HTMLInputElement} */
-    monochromeToggle;
-    /** @type {HTMLInputElement} */ // <-- ADDED PROPERTY
-    smoothSurfaceToggle; // <-- ADDED PROPERTY
+    filmNoiseSlider;
+    /** @type {HTMLInputElement} */
+    filmScanlineSlider;
+    // --- END NEW EFFECT CONTROLS ---
 
 
     // --- New UI elements for collapsible controls ---
@@ -368,10 +424,10 @@
     isPortraitMode = false;
     /** @type {boolean} */
     isTransparentBackground = false;
+    /** @type {string} */
+    materialMode = 'Hue';
     /** @type {boolean} */
-    isMonochrome = false;
-    /** @type {boolean} */ // <-- ADDED PROPERTY
-    isSmoothSurface = false; // <-- ADDED PROPERTY
+    isSmoothSurface = false;
     /** @type {number | undefined} */
     originalRecordingAlpha;
     // --- End Recording Properties ---
@@ -401,9 +457,15 @@
     lastBeatTime = 0;
     /** @type {number} */
     glitchDuration = 100;
-    /** @type {boolean} */
-    isGlitchEffectEnabled = true;
-    // --- End BPM Properties ---
+    /** @type {boolean} */ // <-- RENAMED
+    isPulseEffectsEnabled = true;
+
+    // --- NEW EFFECT PROPERTIES ---
+    /** @type {number} */
+    baseFilmNoise = 0.2;
+    /** @type {number} */
+    baseFilmScanlines = 0.1;
+    // --- END NEW EFFECT PROPERTIES ---
 
     /** @type {boolean} */
     isConstructed = false; // Flag to check if constructor finished
@@ -423,7 +485,7 @@
         canvas: canvas,
         antialias: true,
         preserveDrawingBuffer: true,
-        alpha: true // <-- ENABLED ALPHA
+        alpha: true
       });
 
       this.renderer.setPixelRatio(window.devicePixelRatio);
@@ -437,27 +499,51 @@
 
       // Glitch Pass
       this.glitchPass = new GlitchPass();
-      this.glitchPass.enabled = false; // Start disabled
+      this.glitchPass.enabled = false; // Start disabled, will be pulsed
       this.composer.addPass(this.glitchPass);
+
+      // --- NEW: Film Pass ---
+      // Get base values from sliders *before* initializing
+      this.filmNoiseSlider = document.getElementById('film-noise-slider');
+      this.filmScanlineSlider = document.getElementById('film-scanline-slider');
+      this.baseFilmNoise = this.filmNoiseSlider ? parseFloat(this.filmNoiseSlider.value) : 0.2;
+      this.baseFilmScanlines = this.filmScanlineSlider ? parseFloat(this.filmScanlineSlider.value) : 0.1;
+
+      this.filmPass = new FilmPass(
+        this.baseFilmNoise,
+        this.baseFilmScanlines,
+        648,  // scanlineCount
+        false // grayscale
+      );
+      this.composer.addPass(this.filmPass); // Always enabled, but values will pulse
+      // --- END NEW ---
 
       // Hue Pass
       this.huePass = new ShaderPass(HueSaturationShader);
       this.composer.addPass(this.huePass);
       // Note: huePass.enabled is set after controls are initialized
 
-      // --- ADDED SMAA PASS for Anti-Aliasing ---
+      // --- NEW: RGB Shift Pass ---
+      this.rgbShiftPass = new ShaderPass(RGBShiftShader);
+      this.rgbShiftPass.uniforms['amount'].value = 0.0; // Start at 0, will pulse
+      this.composer.addPass(this.rgbShiftPass); // Always enabled, but amount will pulse
+      // --- END NEW ---
+
+      // --- SMAA PASS (MUST BE LAST) ---
       const pixelRatio = this.renderer.getPixelRatio();
       this.smaaPass = new SMAAPass(
         window.innerWidth * pixelRatio,
         window.innerHeight * pixelRatio
       );
       this.composer.addPass(this.smaaPass);
-      // --- END OF ADDED SECTION ---
+      // --- END OF COMPOSER CHAIN ---
 
       // --- UI Elements ---
       this.autoRotateToggle = document.getElementById('auto-rotate-toggle');
       this.rotationSliderContainer = document.getElementById('rotation-slider-container');
       this.rotationSlider = document.getElementById('rotation-slider');
+
+      this.autoCameraToggle = document.getElementById('auto-camera-toggle');
 
       this.shapeSelect = document.getElementById('shape-select');
 
@@ -481,9 +567,11 @@
 
       this.bpmSlider = document.getElementById('bpm-slider');
       this.bpmValueSpan = document.getElementById('bpm-value');
-      this.glitchToggle = document.getElementById('glitch-toggle');
-      this.monochromeToggle = document.getElementById('monochrome-toggle');
-      this.smoothSurfaceToggle = document.getElementById('smooth-surface-toggle'); // <-- GET ELEMENT
+      this.pulseEffectsToggle = document.getElementById('pulse-effects-toggle'); // <-- RENAMED
+      this.materialSelect = document.getElementById('material-select');
+      this.smoothSurfaceToggle = document.getElementById('smooth-surface-toggle');
+
+      // filmNoiseSlider and filmScanlineSlider are already retrieved above
 
       this.toggleButton = document.getElementById('toggle-controls');
       this.controlsContent = document.getElementById('controls-content');
@@ -500,14 +588,16 @@
       // Check if all UI elements were found
       if (
         !this.autoRotateToggle || !this.rotationSliderContainer || !this.rotationSlider ||
+        !this.autoCameraToggle ||
         !this.shapeSelect ||
         !this.sphereControls || !this.detailSlider || !this.detailValueSpan ||
         !this.boxControls || !this.boxSegmentsSlider || !this.boxSegmentsValue ||
         !this.torusControls || !this.torusRadialSlider || !this.torusRadialValue || !this.torusTubularSlider || !this.torusTubularValue ||
         !this.coneControls || !this.coneSegmentsSlider || !this.coneSegmentsValue ||
         !this.bpmSlider || !this.bpmValueSpan ||
-        !this.glitchToggle || !this.monochromeToggle ||
-        !this.smoothSurfaceToggle || // <-- ADD TO CHECK
+        !this.pulseEffectsToggle || !this.materialSelect || // <-- UPDATED CHECK
+        !this.filmNoiseSlider || !this.filmScanlineSlider || // <-- NEW CHECK
+        !this.smoothSurfaceToggle ||
         !this.toggleButton || !this.controlsContent || !this.arrowIcon ||
         !this.recordingDurationInput || !this.startRecordingButton || !this.recordingStatus ||
         !this.saveImageButton || !this.imageOrientationToggle || !this.transparentBgToggle
@@ -521,6 +611,8 @@
       this.rotationSliderContainer.style.display = this.isAutoRotate ? 'none' : 'block';
       this.rotationSpeed = parseFloat(this.rotationSlider.value);
 
+      this.isAutoCamera = this.autoCameraToggle.checked;
+
       this.currentShape = this.shapeSelect.value;
       this.sphereDetail = parseInt(this.detailSlider.value);
       this.boxSegments = parseInt(this.boxSegmentsSlider.value);
@@ -530,14 +622,14 @@
 
       this.bpm = parseFloat(this.bpmSlider.value);
       this.bpmValueSpan.textContent = this.bpm;
-      this.isGlitchEffectEnabled = this.glitchToggle.checked;
+      this.isPulseEffectsEnabled = this.pulseEffectsToggle.checked; // <-- UPDATED
 
       this.isPortraitMode = this.imageOrientationToggle.checked;
       this.isTransparentBackground = this.transparentBgToggle.checked;
-      this.isMonochrome = this.monochromeToggle.checked;
-      this.isSmoothSurface = this.smoothSurfaceToggle.checked; // <-- SET INITIAL VALUE
+      this.materialMode = this.materialSelect.value;
+      this.isSmoothSurface = this.smoothSurfaceToggle.checked;
 
-      this.huePass.enabled = !this.isMonochrome;
+      this.huePass.enabled = (this.materialMode === 'Hue');
 
       this.updateShapeControls(); // Set initial control visibility
 
@@ -627,17 +719,28 @@
       let material;
       const wireframe = !this.isSmoothSurface;
 
-      if (this.isMonochrome) {
-        material = new THREE.MeshBasicMaterial({
-          color: 0xffffff,
-          wireframe: wireframe
-        });
-      } else {
-        material = new THREE.MeshNormalMaterial({
-          wireframe: wireframe,
-          // Flat shading looks better on the solid normal material
-          flatShading: this.isSmoothSurface
-        });
+      switch (this.materialMode) {
+        case 'Monochrome':
+          material = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            wireframe: wireframe
+          });
+          break;
+        case 'Lit':
+          material = new THREE.MeshPhongMaterial({
+            color: 0xffffff,
+            wireframe: wireframe,
+            flatShading: this.isSmoothSurface // Phong looks good with flat shading
+          });
+          break;
+        case 'Hue':
+        default:
+          material = new THREE.MeshNormalMaterial({
+            wireframe: wireframe,
+            // Flat shading looks better on the solid normal material
+            flatShading: this.isSmoothSurface
+          });
+          break;
       }
       // --- END UPDATE ---
 
@@ -649,6 +752,15 @@
      * Creates the 3D objects for the scene.
      */
     initScene() {
+      // --- ADDED LIGHTS ---
+      this.ambientLight = new THREE.AmbientLight(0x404040); // soft white light
+      this.scene.add(this.ambientLight);
+
+      this.pointLight = new THREE.PointLight(0xffffff, 1, 100);
+      this.pointLight.position.set(5, 5, 5); // Position the light
+      this.scene.add(this.pointLight);
+      // --- END LIGHTS ---
+
       this.recreateMesh(); // Call helper method
       this.camera.position.z = 5;
     }
@@ -666,6 +778,16 @@
       });
       this.rotationSlider.addEventListener('input', (e) => {
         this.rotationSpeed = parseFloat(e.target.value);
+      });
+
+      // --- Auto-Camera Listener ---
+      this.autoCameraToggle.addEventListener('change', (e) => {
+        this.isAutoCamera = e.target.checked;
+        if (!this.isAutoCamera) {
+          // Reset camera to default if auto-camera is turned off
+          this.camera.position.set(0, 0, 5);
+          this.camera.lookAt(0, 0, 0); // Look at center
+        }
       });
 
       // --- Shape Listeners ---
@@ -726,12 +848,42 @@
         }
       });
 
-      this.glitchToggle.addEventListener('change', (e) => {
-        this.isGlitchEffectEnabled = e.target.checked;
-        if (!this.isGlitchEffectEnabled && this.glitchPass) {
+      // --- UPDATED: Pulse Effects Listener ---
+      this.pulseEffectsToggle.addEventListener('change', (e) => {
+        this.isPulseEffectsEnabled = e.target.checked;
+        if (!this.isPulseEffectsEnabled) {
+          // Reset all pulse effects if disabled
           this.glitchPass.enabled = false;
+          this.rgbShiftPass.uniforms['amount'].value = 0.0;
+          // --- FIX: Add safety check ---
+          if (this.filmPass && this.filmPass.uniforms && this.filmPass.uniforms.nIntensity && this.filmPass.uniforms.sIntensity) {
+            this.filmPass.uniforms['nIntensity'].value = this.baseFilmNoise;
+            this.filmPass.uniforms['sIntensity'].value = this.baseFilmScanlines;
+          }
         }
       });
+      // --- END UPDATE ---
+
+      // --- NEW: Film Slider Listeners ---
+      this.filmNoiseSlider.addEventListener('input', (e) => {
+        this.baseFilmNoise = parseFloat(e.target.value);
+        if (!this.isPulseEffectsEnabled || !this.glitchPass.enabled) {
+          // --- FIX: Add safety check ---
+          if (this.filmPass && this.filmPass.uniforms && this.filmPass.uniforms.nIntensity) {
+            this.filmPass.uniforms['nIntensity'].value = this.baseFilmNoise;
+          }
+        }
+      });
+      this.filmScanlineSlider.addEventListener('input', (e) => {
+        this.baseFilmScanlines = parseFloat(e.target.value);
+        if (!this.isPulseEffectsEnabled || !this.glitchPass.enabled) {
+          // --- FIX: Add safety check ---
+          if (this.filmPass && this.filmPass.uniforms && this.filmPass.uniforms.sIntensity) {
+            this.filmPass.uniforms['sIntensity'].value = this.baseFilmScanlines;
+          }
+        }
+      });
+      // --- END NEW ---
 
       this.toggleButton.addEventListener('click', () => {
         if (this.controlsContent && this.arrowIcon) {
@@ -765,10 +917,10 @@
         this.isTransparentBackground = e.target.checked;
       });
 
-      // --- ADDED MONOCHROME LISTENER ---
-      this.monochromeToggle.addEventListener('change', (e) => {
-        this.isMonochrome = e.target.checked;
-        this.huePass.enabled = !this.isMonochrome; // Toggle hue effect
+      // --- ADDED MATERIAL SELECT LISTENER ---
+      this.materialSelect.addEventListener('change', (e) => {
+        this.materialMode = e.target.value;
+        this.huePass.enabled = (this.materialMode === 'Hue'); // Toggle hue effect
         this.recreateMesh(); // Rebuild mesh with new material
       });
 
@@ -993,7 +1145,7 @@
       // --- Update Rotation Speed ---
       if (this.isAutoRotate) {
         // Oscillates between 0.002 and 0.042
-        this.rotationSpeed = (Math.sin(Date.now() * 0.0005) + 2) * 0.05;
+        this.rotationSpeed = (Math.sin(Date.now() * 0.0005) + 1.1) * 0.02;
       }
       // If auto-rotate is off, this.rotationSpeed is set by the slider's event listener
 
@@ -1004,30 +1156,67 @@
       }
 
       // --- Update Effects Uniforms ---
-      if (this.huePass.enabled) { // <-- ADDED CHECK
+      if (this.huePass.enabled) {
         const time = Date.now() * 0.0002;
         this.hueValue = Math.sin(time);
 
         if (this.huePass.uniforms['hue']) {
           this.huePass.uniforms['hue'].value = this.hueValue;
         }
-      } // <-- END CHECK
+      }
 
-      // --- Control Glitch Effect (BPM Logic) ---
-      if (this.isGlitchEffectEnabled && this.glitchPass) {
+      // --- NEW: Update Film Pass Time ---
+      if (this.filmPass && this.filmPass.uniforms && this.filmPass.uniforms.time) {
+        this.filmPass.uniforms['time'].value += 0.05; // Animates noise/scanlines
+      }
+
+      // --- UPDATED: Control BPM Pulse Effects ---
+      if (this.isPulseEffectsEnabled && this.filmPass) {
         const now = Date.now();
+
         const beatInterval = (60 / this.bpm) * 1000;
 
-        // Check if the glitch duration has passed
+        // Check if the pulse duration has passed
         if (this.glitchPass.enabled && (now - this.lastBeatTime > this.glitchDuration)) {
           this.glitchPass.enabled = false;
+          if (this.rgbShiftPass && this.rgbShiftPass.uniforms && this.rgbShiftPass.uniforms.amount) {
+            this.rgbShiftPass.uniforms['amount'].value = 0.0; // Reset RGB shift
+          }
+
+          // --- FIX: Check for uniforms object as well ---
+          if (this.filmPass && this.filmPass.uniforms && this.filmPass.uniforms.nIntensity && this.filmPass.uniforms.sIntensity) {
+            // Reset film grain to base
+            this.filmPass.uniforms['nIntensity'].value = this.baseFilmNoise;
+            this.filmPass.uniforms['sIntensity'].value = this.baseFilmScanlines;
+          }
         }
 
         // Check if a new beat should trigger
         if (!this.glitchPass.enabled && (now - this.lastBeatTime >= beatInterval)) {
-          this.glitchPass.enabled = true;
+          this.glitchPass.enabled = true; // Enable digital glitch
+
+          if (this.rgbShiftPass && this.rgbShiftPass.uniforms && this.rgbShiftPass.uniforms.amount) {
+            this.rgbShiftPass.uniforms['amount'].value = 0.015; // Spike RGB shift
+          }
+
+          // --- FIX: Check for uniforms object as well ---
+          if (this.filmPass && this.filmPass.uniforms && this.filmPass.uniforms.nIntensity && this.filmPass.uniforms.sIntensity) {
+            // Spike film grain (multiply base values)
+            this.filmPass.uniforms['nIntensity'].value = this.baseFilmNoise * 5;
+            this.filmPass.uniforms['sIntensity'].value = this.baseFilmScanlines * 5;
+          }
+
           this.lastBeatTime = now; // Set new beat time
         }
+      }
+      // --- END BPM Pulse Effects ---
+
+      // --- Auto-Camera Logic ---
+      if (this.isAutoCamera) {
+        const time = Date.now() * 0.0001; // Slower time for camera
+        this.camera.position.x = Math.sin(time) * 5;
+        this.camera.position.z = Math.cos(time) * 5;
+        this.camera.lookAt(0, 0, 0); // Ensure camera always points to the center
       }
 
       // Render the scene (which is necessary for the recorder to capture frames)
