@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Glitch Visualizer v3</title>
+  <title>Glitch Visualizer v4</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     html, body {
@@ -113,78 +113,95 @@
         </div>
       </label>
 
-      <!-- Shape Selector -->
-      <div>
-        <label for="shape-select">Shape</label>
-        <select id="shape-select">
-          <option value="Sphere">Sphere</option>
-          <option value="Box">Box</option>
-          <option value="Torus">Torus</option>
-          <option value="Cone">Cone</option>
-        </select>
-      </div>
+      <!-- *** SHAPE CONTROLS *** -->
+      <div class="pt-4 border-t border-gray-600">
+        <h3 class="text-md font-semibold mb-2">Shapes</h3>
 
-      <!-- MATERIAL SELECTOR -->
-      <div>
-        <label for="material-select">Material</label>
-        <select id="material-select">
-          <option value="Hue">Hue (Normal)</option>
-          <option value="Monochrome">Monochrome</option>
-          <option value="Lit">Lit (White)</option>
-        </select>
-      </div>
+        <!-- Shape Selector -->
+        <div>
+          <label for="shape-select">Shape</label>
+          <select id="shape-select">
+            <option value="Sphere">Sphere</option>
+            <option value="Box">Box</option>
+            <option value="Torus">Torus</option>
+            <option value="Cone">Cone</option>
+          </select>
+        </div>
 
-      <!-- SMOOTH SURFACE TOGGLE -->
-      <label for="smooth-surface-toggle" class="flex items-center cursor-pointer">
-        <span class="mr-3 text-sm">Smooth Surface</span>
-        <div class="relative">
-          <input type="checkbox" id="smooth-surface-toggle" class="sr-only peer">
-          <div class="w-14 h-8 bg-gray-600 rounded-full peer-checked:bg-purple-600 transition-colors"></div>
-          <div class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-full"></div>
+        <!-- MATERIAL SELECTOR -->
+        <div>
+          <label for="material-select">Material</label>
+          <select id="material-select">
+            <option value="Hue">Hue (Normal)</option>
+            <option value="Monochrome">Monochrome</option>
+            <option value="Lit">Lit (White)</option>
+          </select>
         </div>
-      </label>
 
-      <!-- Shape-Specific Controls Container -->
-      <div id="shape-controls-container">
-        <!-- Sphere Controls -->
-        <div id="sphere-controls">
-          <label for="detail-slider">Sphere Detail</label>
+        <!-- SMOOTH SURFACE TOGGLE -->
+        <label for="smooth-surface-toggle" class="flex items-center cursor-pointer">
+          <span class="mr-3 text-sm">Smooth Surface</span>
+          <div class="relative">
+            <input type="checkbox" id="smooth-surface-toggle" class="sr-only peer">
+            <div class="w-14 h-8 bg-gray-600 rounded-full peer-checked:bg-purple-600 transition-colors"></div>
+            <div class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-full"></div>
+          </div>
+        </label>
+
+        <!-- *** NEW: SHAPE COUNT SLIDER *** -->
+        <div class="mt-2">
+          <label for="shape-count-slider">Shape Count</label>
           <div class="flex justify-between items-center mb-2">
-            <input type="range" id="detail-slider" min="0" max="50" step="1" value="3" class="w-full cursor-pointer mr-3">
-            <span id="detail-value" class="text-sm text-gray-300 w-6 text-right">3</span>
+            <input type="range" id="shape-count-slider" min="1" max="50" step="1" value="1" class="w-full cursor-pointer mr-3">
+            <span id="shape-count-value" class="text-sm text-gray-300 w-6 text-right">1</span>
           </div>
         </div>
-        <!-- Box Controls -->
-        <div id="box-controls" class="hidden">
-          <label for="box-segments-slider">Box Segments</label>
-          <div class="flex justify-between items-center mb-2">
-            <input type="range" id="box-segments-slider" min="1" max="50" step="1" value="1" class="w-full cursor-pointer mr-3">
-            <span id="box-segments-value" class="text-sm text-gray-300 w-6 text-right">1</span>
+        <!-- *** END NEW *** -->
+
+        <!-- Shape-Specific Controls Container -->
+        <div id="shape-controls-container">
+          <!-- Sphere Controls -->
+          <div id="sphere-controls">
+            <label for="detail-slider">Sphere Detail</label>
+            <div class="flex justify-between items-center mb-2">
+              <input type="range" id="detail-slider" min="0" max="50" step="1" value="3" class="w-full cursor-pointer mr-3">
+              <span id="detail-value" class="text-sm text-gray-300 w-6 text-right">3</span>
+            </div>
+          </div>
+          <!-- Box Controls -->
+          <div id="box-controls" class="hidden">
+            <label for="box-segments-slider">Box Segments</label>
+            <div class="flex justify-between items-center mb-2">
+              <input type="range" id="box-segments-slider" min="1" max="50" step="1" value="1" class="w-full cursor-pointer mr-3">
+              <span id="box-segments-value" class="text-sm text-gray-300 w-6 text-right">1</span>
+            </div>
+          </div>
+          <!-- Torus Controls -->
+          <div id="torus-controls" class="hidden">
+            <label for="torus-radial-slider">Torus Radial Segments</label>
+            <div class="flex justify-between items-center mb-2">
+              <input type="range" id="torus-radial-slider" min="3" max="100" step="1" value="16" class="w-full cursor-pointer mr-3">
+              <span id="torus-radial-value" class="text-sm text-gray-300 w-6 text-right">16</span>
+            </div>
+            <label for="torus-tubular-slider">Torus Tubular Segments</label>
+            <div class="flex justify-between items-center mb-2">
+              <input type="range" id="torus-tubular-slider" min="3" max="100" step="1" value="100" class="w-full cursor-pointer mr-3">
+              <span id="torus-tubular-value" class="text-sm text-gray-300 w-6 text-right">100</span>
+            </div>
+          </div>
+          <!-- Cone Controls -->
+          <div id="cone-controls" class="hidden">
+            <label for="cone-segments-slider">Cone Radial Segments</label>
+            <div class="flex justify-between items-center mb-2">
+              <input type="range" id="cone-segments-slider" min="3" max="100" step="1" value="32" class="w-full cursor-pointer mr-3">
+              <span id="cone-segments-value" class="text-sm text-gray-300 w-6 text-right">32</span>
+            </div>
           </div>
         </div>
-        <!-- Torus Controls -->
-        <div id="torus-controls" class="hidden">
-          <label for="torus-radial-slider">Torus Radial Segments</label>
-          <div class="flex justify-between items-center mb-2">
-            <input type="range" id="torus-radial-slider" min="3" max="100" step="1" value="16" class="w-full cursor-pointer mr-3">
-            <span id="torus-radial-value" class="text-sm text-gray-300 w-6 text-right">16</span>
-          </div>
-          <label for="torus-tubular-slider">Torus Tubular Segments</label>
-          <div class="flex justify-between items-center mb-2">
-            <input type="range" id="torus-tubular-slider" min="3" max="100" step="1" value="100" class="w-full cursor-pointer mr-3">
-            <span id="torus-tubular-value" class="text-sm text-gray-300 w-6 text-right">100</span>
-          </div>
-        </div>
-        <!-- Cone Controls -->
-        <div id="cone-controls" class="hidden">
-          <label for="cone-segments-slider">Cone Radial Segments</label>
-          <div class="flex justify-between items-center mb-2">
-            <input type="range" id="cone-segments-slider" min="3" max="100" step="1" value="32" class="w-full cursor-pointer mr-3">
-            <span id="cone-segments-value" class="text-sm text-gray-300 w-6 text-right">32</span>
-          </div>
-        </div>
+        <!-- End Shape-Specific Controls -->
       </div>
-      <!-- End Shape-Specific Controls -->
+      <!-- --- END SHAPE CONTROLS --- -->
+
 
       <!-- --- EFFECTS CONTROLS --- -->
       <div class="pt-4 border-t border-gray-600">
@@ -349,8 +366,14 @@
     huePass;
     /** @type {SMAAPass} */
     smaaPass;
-    /** @type {THREE.Mesh} */
-    mesh;
+
+    // --- UPDATED: MESH MANAGEMENT ---
+    /** @type {THREE.Mesh[]} */
+    meshes = [];
+    /** @type {THREE.Group} */
+    meshGroup;
+    // --- END MESH MANAGEMENT ---
+
     /** @type {THREE.PointLight} */
     pointLight;
     /** @type {THREE.AmbientLight} */
@@ -416,6 +439,15 @@
     coneSegmentsSlider;
     /** @type {HTMLSpanElement} */
     coneSegmentsValue;
+
+    // --- NEW: Shape Count Controls ---
+    /** @type {HTMLInputElement} */
+    shapeCountSlider;
+    /** @type {HTMLSpanElement} */
+    shapeCountValue;
+    /** @type {number} */
+    shapeCount = 1;
+    // --- END NEW ---
 
     // --- Other Controls ---
     /** @type {HTMLInputElement} */
@@ -639,6 +671,11 @@
       this.coneSegmentsSlider = document.getElementById('cone-segments-slider');
       this.coneSegmentsValue = document.getElementById('cone-segments-value');
 
+      // --- NEW: Get Shape Count UI ---
+      this.shapeCountSlider = document.getElementById('shape-count-slider');
+      this.shapeCountValue = document.getElementById('shape-count-value');
+      // --- END NEW ---
+
       this.bpmSlider = document.getElementById('bpm-slider');
       this.bpmValueSpan = document.getElementById('bpm-value');
       this.pulseEffectsToggle = document.getElementById('pulse-effects-toggle');
@@ -667,6 +704,11 @@
       this.transparentBgToggle = document.getElementById('transparent-bg-toggle');
       this.recordingStatus = document.getElementById('recording-status');
 
+      // --- UPDATED: Create mesh group ---
+      this.meshGroup = new THREE.Group();
+      this.scene.add(this.meshGroup);
+      // --- END UPDATED ---
+
       // Check if all UI elements were found
       if (
         !this.autoRotateToggle || !this.rotationSliderContainer || !this.rotationSlider ||
@@ -676,6 +718,7 @@
         !this.boxControls || !this.boxSegmentsSlider || !this.boxSegmentsValue ||
         !this.torusControls || !this.torusRadialSlider || !this.torusRadialValue || !this.torusTubularSlider || !this.torusTubularValue ||
         !this.coneControls || !this.coneSegmentsSlider || !this.coneSegmentsValue ||
+        !this.shapeCountSlider || !this.shapeCountValue || // <-- NEW CHECK
         !this.bpmSlider || !this.bpmValueSpan ||
         !this.pulseEffectsToggle || !this.materialSelect ||
         !this.filmNoiseSlider || !this.filmScanlineSlider ||
@@ -705,6 +748,11 @@
       this.torusRadialSeg = parseInt(this.torusRadialSlider.value);
       this.torusTubularSeg = parseInt(this.torusTubularSlider.value);
       this.coneRadialSeg = parseInt(this.coneSegmentsSlider.value);
+
+      // --- NEW: Set initial shape count ---
+      this.shapeCount = parseInt(this.shapeCountSlider.value);
+      this.shapeCountValue.textContent = this.shapeCount;
+      // --- END NEW ---
 
       this.bpm = parseFloat(this.bpmSlider.value);
       this.bpmValueSpan.textContent = this.bpm;
@@ -746,6 +794,7 @@
       this.initScene();
       this.setupEventListeners();
       this.onWindowResize(); // Set initial size
+      this.updateMeshInstances(); // Create initial mesh(es)
       this.animate(); // Start animation loop immediately
     }
 
@@ -776,23 +825,63 @@
     }
 
     /**
-     * Creates or recreates the 3D mesh.
+     * Clears all existing meshes and creates new ones based on current settings.
      */
-    recreateMesh() {
-      if (this.mesh) {
-        this.scene.remove(this.mesh);
-        this.mesh.geometry.dispose();
-        // Check if material is an array or single
-        if (Array.isArray(this.mesh.material)) {
-          this.mesh.material.forEach(m => m.dispose());
+    updateMeshInstances() {
+      // 1. Clear existing meshes
+      this.meshes.forEach(mesh => {
+        mesh.geometry.dispose();
+        // Material might be shared, but if it's an array, dispose all
+        if (Array.isArray(mesh.material)) {
+          mesh.material.forEach(m => m.dispose());
         } else {
-          this.mesh.material.dispose();
+          mesh.material.dispose();
         }
-      }
+      });
+      this.meshGroup.clear(); // Remove all children from the group
+      this.meshes = []; // Reset the array
 
+      // 2. Get the base geometry and material
+      const { geometry, material } = this.createBaseGeometryAndMaterial();
+
+      // 3. Create and add new instances
+      for (let i = 0; i < this.shapeCount; i++) {
+        const mesh = new THREE.Mesh(geometry, material);
+
+        // 4. Set position and rotation
+        if (this.shapeCount === 1) {
+          mesh.position.set(0, 0, 0);
+          mesh.rotation.set(0, 0, 0);
+        } else {
+          // Spread shapes out randomly
+          mesh.position.set(
+            (Math.random() - 0.5) * 7,
+            (Math.random() - 0.5) * 7,
+            (Math.random() - 0.5) * 7
+          );
+          mesh.rotation.set(
+            Math.random() * 2 * Math.PI,
+            Math.random() * 2 * Math.PI,
+            Math.random() * 2 * Math.PI
+          );
+        }
+
+        // 5. Add to group and array
+        this.meshGroup.add(mesh);
+        this.meshes.push(mesh);
+      }
+    }
+
+
+    /**
+     * Creates and returns a single geometry and material based on current controls.
+     * Does NOT add anything to the scene.
+     * @returns {{geometry: THREE.BufferGeometry, material: THREE.Material}}
+     */
+    createBaseGeometryAndMaterial() {
       let geometry;
 
-      // --- UPDATED GEOMETRY LOGIC ---
+      // --- GEOMETRY LOGIC ---
       switch (this.currentShape) {
         case 'Box':
           const seg = this.boxSegments;
@@ -802,7 +891,6 @@
           geometry = new THREE.TorusGeometry(1, 0.4, this.torusRadialSeg, this.torusTubularSeg);
           break;
         case 'Cone':
-          // For smooth cone, we need to set flatShading to false
           geometry = new THREE.ConeGeometry(1, 2, this.coneRadialSeg, 1, false, 0, Math.PI * 2);
           break;
         case 'Sphere':
@@ -810,10 +898,8 @@
           geometry = new THREE.IcosahedronGeometry(1, this.sphereDetail);
           break;
       }
-      // --- END GEOMETRY UPDATE ---
 
-
-      // --- UPDATED MATERIAL LOGIC ---
+      // --- MATERIAL LOGIC ---
       let material;
       const wireframe = !this.isSmoothSurface;
 
@@ -828,22 +914,19 @@
           material = new THREE.MeshPhongMaterial({
             color: 0xffffff,
             wireframe: wireframe,
-            flatShading: this.isSmoothSurface // Phong looks good with flat shading
+            flatShading: this.isSmoothSurface
           });
           break;
         case 'Hue':
         default:
           material = new THREE.MeshNormalMaterial({
             wireframe: wireframe,
-            // Flat shading looks better on the solid normal material
             flatShading: this.isSmoothSurface
           });
           break;
       }
-      // --- END UPDATE ---
 
-      this.mesh = new THREE.Mesh(geometry, material);
-      this.scene.add(this.mesh);
+      return { geometry, material };
     }
 
     /**
@@ -859,7 +942,8 @@
       this.scene.add(this.pointLight);
       // --- END LIGHTS ---
 
-      this.recreateMesh(); // Call helper method
+      // Note: Mesh creation is now handled by updateMeshInstances() in init()
+
       this.camera.position.z = 5;
     }
 
@@ -892,8 +976,16 @@
       this.shapeSelect.addEventListener('change', (e) => {
         this.currentShape = e.target.value;
         this.updateShapeControls();
-        this.recreateMesh();
+        this.updateMeshInstances(); // <-- UPDATED
       });
+
+      // --- NEW: Shape Count Listener ---
+      this.shapeCountSlider.addEventListener('input', (e) => {
+        this.shapeCount = parseInt(e.target.value);
+        this.shapeCountValue.textContent = this.shapeCount;
+        this.updateMeshInstances(); // Rebuild all meshes
+      });
+      // --- END NEW ---
 
       // Sphere
       this.detailSlider.addEventListener('input', (e) => {
@@ -901,7 +993,7 @@
         if (this.detailValueSpan) {
           this.detailValueSpan.textContent = this.sphereDetail;
         }
-        this.recreateMesh();
+        this.updateMeshInstances(); // <-- UPDATED
       });
 
       // Box
@@ -910,7 +1002,7 @@
         if (this.boxSegmentsValue) {
           this.boxSegmentsValue.textContent = this.boxSegments;
         }
-        this.recreateMesh();
+        this.updateMeshInstances(); // <-- UPDATED
       });
 
       // Torus
@@ -919,14 +1011,14 @@
         if (this.torusRadialValue) {
           this.torusRadialValue.textContent = this.torusRadialSeg;
         }
-        this.recreateMesh();
+        this.updateMeshInstances(); // <-- UPDATED
       });
       this.torusTubularSlider.addEventListener('input', (e) => {
         this.torusTubularSeg = parseInt(e.target.value);
         if (this.torusTubularValue) {
           this.torusTubularValue.textContent = this.torusTubularSeg;
         }
-        this.recreateMesh();
+        this.updateMeshInstances(); // <-- UPDATED
       });
 
       // Cone
@@ -935,7 +1027,7 @@
         if (this.coneSegmentsValue) {
           this.coneSegmentsValue.textContent = this.coneRadialSeg;
         }
-        this.recreateMesh();
+        this.updateMeshInstances(); // <-- UPDATED
       });
 
       // --- Other Control Listeners ---
@@ -1050,13 +1142,13 @@
       this.materialSelect.addEventListener('change', (e) => {
         this.materialMode = e.target.value;
         this.huePass.enabled = (this.materialMode === 'Hue'); // Toggle hue effect
-        this.recreateMesh(); // Rebuild mesh with new material
+        this.updateMeshInstances(); // <-- UPDATED
       });
 
       // --- ADDED SMOOTH SURFACE LISTENER ---
       this.smoothSurfaceToggle.addEventListener('change', (e) => {
         this.isSmoothSurface = e.target.checked;
-        this.recreateMesh(); // Rebuild mesh with new material
+        this.updateMeshInstances(); // <-- UPDATED
       });
     }
 
@@ -1280,11 +1372,20 @@
       }
       // If auto-rotate is off, this.rotationSpeed is set by the slider's event listener
 
-      // --- Update Visuals ---
-      if (this.mesh) { // Add check in case mesh hasn't been created
-        this.mesh.rotation.x += this.rotationSpeed / 2.5;
-        this.mesh.rotation.y += this.rotationSpeed;
+      // --- UPDATED: Update Visuals ---
+      if (this.meshGroup) {
+        // Rotate the entire group
+        this.meshGroup.rotation.x += this.rotationSpeed / 2.5;
+        this.meshGroup.rotation.y += this.rotationSpeed;
+
+        // Add subtle individual rotation
+        const individualSpeed = this.rotationSpeed * 0.1;
+        this.meshes.forEach(mesh => {
+          mesh.rotation.x += individualSpeed;
+          mesh.rotation.z += individualSpeed;
+        });
       }
+      // --- END UPDATED ---
 
       // --- Update Effects Uniforms ---
       if (this.huePass.enabled) {
@@ -1369,7 +1470,19 @@
         const time = now * 0.0001; // Slower time for camera
         this.camera.position.x = Math.sin(time) * 5;
         this.camera.position.z = Math.cos(time) * 5;
+        // --- Adjust camera Y position to look down slightly if multiple objects
+        if(this.shapeCount > 1) {
+          this.camera.position.y = Math.cos(time * 0.7) * 2; // Slower Y bob
+        } else {
+          this.camera.position.y = 0;
+        }
         this.camera.lookAt(0, 0, 0); // Ensure camera always points to the center
+      } else {
+        // Reset Y position if auto-camera is off
+        if(this.camera.position.y !== 0) {
+          this.camera.position.set(0, 0, 5);
+          this.camera.lookAt(0, 0, 0);
+        }
       }
 
       // Render the scene (which is necessary for the recorder to capture frames)
