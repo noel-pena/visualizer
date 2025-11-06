@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Glitch Visualizer v2</title>
+  <title>Glitch Visualizer v3</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     html, body {
@@ -199,11 +199,21 @@
         </div>
 
         <!-- BPM PULSE Toggle Switch -->
-        <label for="pulse-effects-toggle" class="flex items-center cursor-pointer">
+        <label for="pulse-effects-toggle" class="flex items-center justify-between cursor-pointer">
           <span class="mr-3 text-sm">BPM Pulse Effects</span>
           <div class="relative">
             <input type="checkbox" id="pulse-effects-toggle" class="sr-only peer" checked>
             <div class="w-14 h-8 bg-gray-600 rounded-full peer-checked:bg-purple-600 transition-colors"></div>
+            <div class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-full"></div>
+          </div>
+        </label>
+
+        <!-- *** NEW: RANDOM GLITCH TOGGLE *** -->
+        <label for="random-glitch-toggle" class="flex items-center justify-between cursor-pointer mt-2">
+          <span class="mr-3 text-sm">Random Glitch</span>
+          <div class="relative">
+            <input type="checkbox" id="random-glitch-toggle" class="sr-only peer">
+            <div class="w-14 h-8 bg-gray-600 rounded-full peer-checked:bg-red-600 transition-colors"></div>
             <div class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-full"></div>
           </div>
         </label>
@@ -217,6 +227,35 @@
           <label for="film-scanline-slider">Film Scanlines</label>
           <input type="range" id="film-scanline-slider" min="0" max="1" step="0.01" value="0.1" class="w-full mb-2 cursor-pointer">
         </div>
+
+        <!-- *** NEW: AFTERIMAGE CONTROLS *** -->
+        <label for="afterimage-toggle" class="flex items-center justify-between cursor-pointer mt-4">
+          <span class="mr-3 text-sm">Afterimage (Trails)</span>
+          <div class="relative">
+            <input type="checkbox" id="afterimage-toggle" class="sr-only peer">
+            <div class="w-14 h-8 bg-gray-600 rounded-full peer-checked:bg-blue-600 transition-colors"></div>
+            <div class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-full"></div>
+          </div>
+        </label>
+        <div class="mt-2">
+          <label for="afterimage-damp-slider">Afterimage Damp (Fade)</label>
+          <input type="range" id="afterimage-damp-slider" min="0.5" max="0.99" step="0.01" value="0.9" class="w-full mb-2 cursor-pointer">
+        </div>
+
+        <!-- *** NEW: DOT SCREEN CONTROLS *** -->
+        <label for="dot-screen-toggle" class="flex items-center justify-between cursor-pointer mt-2">
+          <span class="mr-3 text-sm">Dot Screen</span>
+          <div class="relative">
+            <input type="checkbox" id="dot-screen-toggle" class="sr-only peer">
+            <div class="w-14 h-8 bg-gray-600 rounded-full peer-checked:bg-blue-600 transition-colors"></div>
+            <div class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform peer-checked:translate-x-full"></div>
+          </div>
+        </label>
+        <div class="mt-2">
+          <label for="dot-screen-scale-slider">Dot Screen Scale</label>
+          <input type="range" id="dot-screen-scale-slider" min="0.1" max="5" step="0.1" value="1" class="w-full mb-2 cursor-pointer">
+        </div>
+
       </div>
       <!-- --- END EFFECTS CONTROLS --- -->
 
@@ -288,6 +327,8 @@
   // --- NEW IMPORTS ---
   import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
   import { RGBShiftShader } from 'three/addons/shaders/RGBShiftShader.js';
+  import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js';
+  import { DotScreenPass } from 'three/addons/postprocessing/DotScreenPass.js';
   // --- END NEW IMPORTS ---
 
   /**
@@ -320,6 +361,10 @@
     filmPass;
     /** @type {ShaderPass} */
     rgbShiftPass;
+    /** @type {AfterimagePass} */
+    afterimagePass;
+    /** @type {DotScreenPass} */
+    dotScreenPass;
     // --- END NEW EFFECT PASSES ---
 
     // --- Rotation Controls ---
@@ -377,7 +422,7 @@
     bpmSlider;
     /** @type {HTMLSpanElement} */
     bpmValueSpan;
-    /** @type {HTMLInputElement} */ // <-- RENAMED
+    /** @type {HTMLInputElement} */
     pulseEffectsToggle;
     /** @type {HTMLSelectElement} */
     materialSelect;
@@ -389,6 +434,16 @@
     filmNoiseSlider;
     /** @type {HTMLInputElement} */
     filmScanlineSlider;
+    /** @type {HTMLInputElement} */
+    randomGlitchToggle;
+    /** @type {HTMLInputElement} */
+    afterimageToggle;
+    /** @type {HTMLInputElement} */
+    afterimageSlider;
+    /** @type {HTMLInputElement} */
+    dotScreenToggle;
+    /** @type {HTMLInputElement} */
+    dotScreenSlider;
     // --- END NEW EFFECT CONTROLS ---
 
 
@@ -457,7 +512,7 @@
     lastBeatTime = 0;
     /** @type {number} */
     glitchDuration = 100;
-    /** @type {boolean} */ // <-- RENAMED
+    /** @type {boolean} */
     isPulseEffectsEnabled = true;
 
     // --- NEW EFFECT PROPERTIES ---
@@ -465,6 +520,12 @@
     baseFilmNoise = 0.2;
     /** @type {number} */
     baseFilmScanlines = 0.1;
+    /** @type {boolean} */
+    isRandomGlitchEnabled = false;
+    /** @type {boolean} */
+    isAfterimageEnabled = false;
+    /** @type {boolean} */
+    isDotScreenEnabled = false;
     // --- END NEW EFFECT PROPERTIES ---
 
     /** @type {boolean} */
@@ -529,6 +590,19 @@
       this.composer.addPass(this.rgbShiftPass); // Always enabled, but amount will pulse
       // --- END NEW ---
 
+      // --- NEW: Dot Screen Pass ---
+      this.dotScreenPass = new DotScreenPass();
+      this.dotScreenPass.enabled = false; // Start disabled
+      this.composer.addPass(this.dotScreenPass);
+      // --- END NEW ---
+
+      // --- NEW: Afterimage Pass ---
+      this.afterimagePass = new AfterimagePass();
+      this.afterimagePass.enabled = false; // Start disabled
+      this.composer.addPass(this.afterimagePass);
+      // --- END NEW ---
+
+
       // --- SMAA PASS (MUST BE LAST) ---
       const pixelRatio = this.renderer.getPixelRatio();
       this.smaaPass = new SMAAPass(
@@ -567,11 +641,19 @@
 
       this.bpmSlider = document.getElementById('bpm-slider');
       this.bpmValueSpan = document.getElementById('bpm-value');
-      this.pulseEffectsToggle = document.getElementById('pulse-effects-toggle'); // <-- RENAMED
+      this.pulseEffectsToggle = document.getElementById('pulse-effects-toggle');
       this.materialSelect = document.getElementById('material-select');
       this.smoothSurfaceToggle = document.getElementById('smooth-surface-toggle');
 
       // filmNoiseSlider and filmScanlineSlider are already retrieved above
+
+      // --- NEW: Get new effect UI elements ---
+      this.randomGlitchToggle = document.getElementById('random-glitch-toggle');
+      this.afterimageToggle = document.getElementById('afterimage-toggle');
+      this.afterimageSlider = document.getElementById('afterimage-damp-slider');
+      this.dotScreenToggle = document.getElementById('dot-screen-toggle');
+      this.dotScreenSlider = document.getElementById('dot-screen-scale-slider');
+      // --- END NEW ---
 
       this.toggleButton = document.getElementById('toggle-controls');
       this.controlsContent = document.getElementById('controls-content');
@@ -595,9 +677,13 @@
         !this.torusControls || !this.torusRadialSlider || !this.torusRadialValue || !this.torusTubularSlider || !this.torusTubularValue ||
         !this.coneControls || !this.coneSegmentsSlider || !this.coneSegmentsValue ||
         !this.bpmSlider || !this.bpmValueSpan ||
-        !this.pulseEffectsToggle || !this.materialSelect || // <-- UPDATED CHECK
-        !this.filmNoiseSlider || !this.filmScanlineSlider || // <-- NEW CHECK
+        !this.pulseEffectsToggle || !this.materialSelect ||
+        !this.filmNoiseSlider || !this.filmScanlineSlider ||
         !this.smoothSurfaceToggle ||
+        // --- NEW: Add new controls to check ---
+        !this.randomGlitchToggle || !this.afterimageToggle || !this.afterimageSlider ||
+        !this.dotScreenToggle || !this.dotScreenSlider ||
+        // --- END NEW ---
         !this.toggleButton || !this.controlsContent || !this.arrowIcon ||
         !this.recordingDurationInput || !this.startRecordingButton || !this.recordingStatus ||
         !this.saveImageButton || !this.imageOrientationToggle || !this.transparentBgToggle
@@ -622,7 +708,7 @@
 
       this.bpm = parseFloat(this.bpmSlider.value);
       this.bpmValueSpan.textContent = this.bpm;
-      this.isPulseEffectsEnabled = this.pulseEffectsToggle.checked; // <-- UPDATED
+      this.isPulseEffectsEnabled = this.pulseEffectsToggle.checked;
 
       this.isPortraitMode = this.imageOrientationToggle.checked;
       this.isTransparentBackground = this.transparentBgToggle.checked;
@@ -630,6 +716,18 @@
       this.isSmoothSurface = this.smoothSurfaceToggle.checked;
 
       this.huePass.enabled = (this.materialMode === 'Hue');
+
+      // --- NEW: Set initial values for new effects ---
+      this.isRandomGlitchEnabled = this.randomGlitchToggle.checked;
+
+      this.isAfterimageEnabled = this.afterimageToggle.checked;
+      this.afterimagePass.enabled = this.isAfterimageEnabled;
+      this.afterimagePass.uniforms['damp'].value = parseFloat(this.afterimageSlider.value);
+
+      this.isDotScreenEnabled = this.dotScreenToggle.checked;
+      this.dotScreenPass.enabled = this.isDotScreenEnabled;
+      this.dotScreenPass.uniforms['scale'].value = parseFloat(this.dotScreenSlider.value);
+      // --- END NEW ---
 
       this.updateShapeControls(); // Set initial control visibility
 
@@ -864,6 +962,12 @@
       });
       // --- END UPDATE ---
 
+      // --- NEW: Random Glitch Listener ---
+      this.randomGlitchToggle.addEventListener('change', (e) => {
+        this.isRandomGlitchEnabled = e.target.checked;
+      });
+      // --- END NEW ---
+
       // --- NEW: Film Slider Listeners ---
       this.filmNoiseSlider.addEventListener('input', (e) => {
         this.baseFilmNoise = parseFloat(e.target.value);
@@ -884,6 +988,31 @@
         }
       });
       // --- END NEW ---
+
+      // --- NEW: Afterimage Listeners ---
+      this.afterimageToggle.addEventListener('change', (e) => {
+        this.isAfterimageEnabled = e.target.checked;
+        this.afterimagePass.enabled = this.isAfterimageEnabled;
+      });
+      this.afterimageSlider.addEventListener('input', (e) => {
+        if (this.afterimagePass) {
+          this.afterimagePass.uniforms['damp'].value = parseFloat(e.target.value);
+        }
+      });
+      // --- END NEW ---
+
+      // --- NEW: Dot Screen Listeners ---
+      this.dotScreenToggle.addEventListener('change', (e) => {
+        this.isDotScreenEnabled = e.target.checked;
+        this.dotScreenPass.enabled = this.isDotScreenEnabled;
+      });
+      this.dotScreenSlider.addEventListener('input', (e) => {
+        if (this.dotScreenPass) {
+          this.dotScreenPass.uniforms['scale'].value = parseFloat(e.target.value);
+        }
+      });
+      // --- END NEW ---
+
 
       this.toggleButton.addEventListener('click', () => {
         if (this.controlsContent && this.arrowIcon) {
@@ -1142,10 +1271,12 @@
       // Must bind 'this' for requestAnimationFrame
       requestAnimationFrame(() => this.animate());
 
+      const now = Date.now(); // Get time once for all calculations
+
       // --- Update Rotation Speed ---
       if (this.isAutoRotate) {
         // Oscillates between 0.002 and 0.042
-        this.rotationSpeed = (Math.sin(Date.now() * 0.0005) + 1.1) * 0.02;
+        this.rotationSpeed = (Math.sin(now * 0.0005) + 1.1) * 0.02;
       }
       // If auto-rotate is off, this.rotationSpeed is set by the slider's event listener
 
@@ -1157,7 +1288,7 @@
 
       // --- Update Effects Uniforms ---
       if (this.huePass.enabled) {
-        const time = Date.now() * 0.0002;
+        const time = now * 0.0002;
         this.hueValue = Math.sin(time);
 
         if (this.huePass.uniforms['hue']) {
@@ -1172,8 +1303,6 @@
 
       // --- UPDATED: Control BPM Pulse Effects ---
       if (this.isPulseEffectsEnabled && this.filmPass) {
-        const now = Date.now();
-
         const beatInterval = (60 / this.bpm) * 1000;
 
         // Check if the pulse duration has passed
@@ -1211,9 +1340,33 @@
       }
       // --- END BPM Pulse Effects ---
 
+      // --- NEW: Random Glitch Effects ---
+      // Only trigger if no glitch is currently active and the random toggle is on
+      if (this.isRandomGlitchEnabled && !this.glitchPass.enabled && Math.random() < 0.015) { // ~1.5% chance per frame
+        this.glitchPass.enabled = true;
+        if (this.rgbShiftPass?.uniforms?.amount) {
+          this.rgbShiftPass.uniforms['amount'].value = 0.005 + Math.random() * 0.02; // Random intensity
+        }
+
+        const randomDuration = 50 + Math.random() * 150; // 50ms to 200ms
+        setTimeout(() => {
+          // We check if the BPM pulse has taken over.
+          // If the BPM pulse *just* fired, (now - lastBeatTime) will be small.
+          // We only turn off the glitch if the BPM pulse *is not* active.
+          const currentTime = Date.now();
+          if (currentTime - this.lastBeatTime > this.glitchDuration) {
+            this.glitchPass.enabled = false;
+            if (this.rgbShiftPass?.uniforms?.amount) {
+              this.rgbShiftPass.uniforms['amount'].value = 0.0;
+            }
+          }
+        }, randomDuration);
+      }
+      // --- END Random Glitch Effects ---
+
       // --- Auto-Camera Logic ---
       if (this.isAutoCamera) {
-        const time = Date.now() * 0.0001; // Slower time for camera
+        const time = now * 0.0001; // Slower time for camera
         this.camera.position.x = Math.sin(time) * 5;
         this.camera.position.z = Math.cos(time) * 5;
         this.camera.lookAt(0, 0, 0); // Ensure camera always points to the center
