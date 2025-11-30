@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Glitch Visualizer v4 - Spotify Canvas Edition</title>
+  <title>Glitch Visualizer v4.3 - Fixed Perspective</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     html, body {
@@ -24,25 +24,31 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      background-color: #111; /* Dark background behind the phone view */
+      background-color: #111;
       background-image: radial-gradient(#222 1px, transparent 1px);
       background-size: 20px 20px;
+      /* CSS Background properties for the user uploaded image */
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: cover;
+      position: relative;
     }
 
     canvas {
       display: block;
-      /* Position is now controlled by flexbox in container, not fixed */
+      /* Important: Canvas must be transparent for CSS BG to show through */
+      background: transparent;
       box-shadow: 0 0 10px rgba(0,0,0,0.5);
     }
 
-    /* When 9:16 mode is active, the canvas looks like a phone screen */
+    /* When 9:16 mode is active */
     canvas.portrait-mode {
       width: auto !important;
-      height: 95% !important; /* Leave a little gap */
+      height: 95% !important;
       aspect-ratio: 9 / 16;
       border: 2px solid #333;
       box-shadow: 0 0 50px rgba(0,0,0,0.8);
-      border-radius: 8px; /* Optional: Slight rounded corners like a phone */
+      border-radius: 8px;
     }
 
     #controls {
@@ -55,9 +61,9 @@
       z-index: 10;
       width: 300px;
       backdrop-filter: blur(5px);
-      max-height: 100vh; /* Ensure it doesn't overflow screen */
-      display: flex; /* Use flex for layout */
-      flex-direction: column; /* Stack children vertically */
+      max-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
     #controls label {
       display: block;
@@ -84,9 +90,8 @@
       width: 100%;
       margin-bottom: 0.75rem;
     }
-    /* Style for disabled recording button */
     #start-recording-button:disabled {
-      background-color: #4b5563; /* gray-600 */
+      background-color: #4b5563;
       cursor: not-allowed;
     }
   </style>
@@ -102,7 +107,6 @@
 <div id="controls" class="text-white max-h-screen flex flex-col">
   <!-- Toggle Button -->
   <button id="toggle-controls" class="flex items-center text-left flex-shrink-0">
-    <!-- Arrow SVG Icon -->
     <svg id="arrow-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 transition-transform duration-300 transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
     </svg>
@@ -223,6 +227,40 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- *** TRANSFORM CONTROLS *** -->
+      <div class="pt-4 border-t border-gray-600">
+        <h3 class="text-md font-semibold mb-2">Transform (No Distortion)</h3>
+
+        <!-- Position X -->
+        <div>
+          <label for="pos-x-slider" class="flex justify-between">
+            <span>Position X (Left/Right)</span>
+            <span id="pos-x-val" class="text-xs text-gray-400">0</span>
+          </label>
+          <input type="range" id="pos-x-slider" min="-5" max="5" step="0.1" value="0" class="w-full cursor-pointer">
+        </div>
+
+        <!-- Position Y -->
+        <div>
+          <label for="pos-y-slider" class="flex justify-between">
+            <span>Position Y (Up/Down)</span>
+            <span id="pos-y-val" class="text-xs text-gray-400">0</span>
+          </label>
+          <input type="range" id="pos-y-slider" min="-5" max="5" step="0.1" value="0" class="w-full cursor-pointer">
+        </div>
+
+        <!-- Scale -->
+        <div>
+          <label for="scale-slider" class="flex justify-between">
+            <span>Scale (Size)</span>
+            <span id="scale-val" class="text-xs text-gray-400">1</span>
+          </label>
+          <input type="range" id="scale-slider" min="0.1" max="3" step="0.1" value="1" class="w-full cursor-pointer">
+        </div>
+
+        <button id="reset-transform-btn" class="text-xs text-purple-300 underline mt-1">Reset Transform</button>
       </div>
 
 
@@ -355,7 +393,7 @@
           Save Snapshot
         </button>
         <span id="recording-status" class="text-sm text-yellow-300 mt-2 hidden">Recording...</span>
-        <p class="text-xs text-gray-400 mt-2">Saves a .webm file. Use an online converter if you need .mp4.</p>
+        <p class="text-xs text-gray-400 mt-2">Saves a .webm file. The clean background will be composited into the video automatically.</p>
       </div>
 
     </div>
@@ -420,14 +458,16 @@
     dotScreenPass;
 
     // --- Canvas & BG Tools ---
+    /** @type {HTMLElement} */
+    canvasContainer;
     /** @type {HTMLInputElement} */
     forcePortraitToggle;
     /** @type {HTMLInputElement} */
     bgImageUpload;
     /** @type {HTMLButtonElement} */
     clearBgButton;
-    /** @type {THREE.TextureLoader} */
-    textureLoader;
+    /** @type {HTMLImageElement | null} */
+    uploadedImageElement = null; // Store the raw image for recording compositing
 
     // --- Rotation Controls ---
     /** @type {HTMLInputElement} */
@@ -438,6 +478,33 @@
     rotationSliderContainer;
     /** @type {boolean} */
     isAutoRotate = true;
+
+    // --- Transform Controls ---
+    /** @type {HTMLInputElement} */
+    posXSlider;
+    /** @type {HTMLInputElement} */
+    posYSlider;
+    /** @type {HTMLInputElement} */
+    scaleSlider;
+    /** @type {HTMLSpanElement} */
+    posXVal;
+    /** @type {HTMLSpanElement} */
+    posYVal;
+    /** @type {HTMLSpanElement} */
+    scaleVal;
+    /** @type {HTMLButtonElement} */
+    resetTransformBtn;
+
+    // Internal Transform State
+    /** @type {number} */
+    offsetX = 0;
+    /** @type {number} */
+    offsetY = 0;
+    /** @type {number} */
+    currentWidth = 100;
+    /** @type {number} */
+    currentHeight = 100;
+
 
     // --- Camera Controls ---
     /** @type {HTMLInputElement} */
@@ -551,8 +618,12 @@
     materialMode = 'Hue';
     /** @type {boolean} */
     isSmoothSurface = false;
-    /** @type {number | undefined} */
-    originalRecordingAlpha;
+
+    // Composite Recording
+    /** @type {HTMLCanvasElement} */
+    compositeCanvas;
+    /** @type {CanvasRenderingContext2D} */
+    compositeCtx;
 
     /** @type {number} */
     rotationSpeed = 0.005;
@@ -599,6 +670,8 @@
 
     constructor() {
       const canvas = document.getElementById('visualizer-canvas');
+      this.canvasContainer = document.getElementById('canvas-container');
+
       if (!canvas) {
         console.error("Canvas element not found!");
         return;
@@ -612,16 +685,19 @@
         canvas: canvas,
         antialias: true,
         preserveDrawingBuffer: true,
-        alpha: true
+        alpha: true // Crucial for CSS background to show through
       });
 
       this.renderer.setPixelRatio(window.devicePixelRatio);
       this.renderer.setSize(window.innerWidth, window.innerHeight);
-
+      this.renderer.setClearColor(0x000000, 0); // Transparent clear color
 
       // --- Post-processing Setup ---
       this.composer = new EffectComposer(this.renderer);
+
+      // RenderPass must clear with alpha 0
       const renderPass = new RenderPass(this.scene, this.camera);
+      renderPass.clearAlpha = 0;
       this.composer.addPass(renderPass);
 
       // Glitch Pass
@@ -638,8 +714,8 @@
       this.filmPass = new FilmPass(
         this.baseFilmNoise,
         this.baseFilmScanlines,
-        648,  // scanlineCount
-        false // grayscale
+        648,
+        false
       );
       this.composer.addPass(this.filmPass);
 
@@ -675,6 +751,15 @@
       this.autoRotateToggle = document.getElementById('auto-rotate-toggle');
       this.rotationSliderContainer = document.getElementById('rotation-slider-container');
       this.rotationSlider = document.getElementById('rotation-slider');
+
+      // --- Transform UI ---
+      this.posXSlider = document.getElementById('pos-x-slider');
+      this.posYSlider = document.getElementById('pos-y-slider');
+      this.scaleSlider = document.getElementById('scale-slider');
+      this.posXVal = document.getElementById('pos-x-val');
+      this.posYVal = document.getElementById('pos-y-val');
+      this.scaleVal = document.getElementById('scale-val');
+      this.resetTransformBtn = document.getElementById('reset-transform-btn');
 
       this.autoCameraToggle = document.getElementById('auto-camera-toggle');
 
@@ -718,7 +803,6 @@
       this.forcePortraitToggle = document.getElementById('force-portrait-toggle');
       this.bgImageUpload = document.getElementById('bg-image-upload');
       this.clearBgButton = document.getElementById('clear-bg-button');
-      this.textureLoader = new THREE.TextureLoader();
 
       this.toggleButton = document.getElementById('toggle-controls');
       this.controlsContent = document.getElementById('controls-content');
@@ -840,6 +924,10 @@
         this.meshGroup.add(mesh);
         this.meshes.push(mesh);
       }
+
+      // Re-apply scale when meshes are rebuilt
+      const currentScale = parseFloat(this.scaleSlider.value);
+      this.meshGroup.scale.set(currentScale, currentScale, currentScale);
     }
 
 
@@ -914,35 +1002,41 @@
         } else {
           canvas.classList.remove('portrait-mode');
         }
-        // Trigger resize to fix resolution
         this.onWindowResize();
       });
 
-      // 2. Background Image Upload
+      // 2. Background Image Upload - UPDATED FOR CSS
       this.bgImageUpload.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
         reader.onload = (event) => {
-          this.textureLoader.load(event.target.result, (texture) => {
-            // Fix texture aspect ratio/fitting
-            texture.colorSpace = THREE.SRGBColorSpace;
-            this.scene.background = texture;
-            this.clearBgButton.classList.remove('hidden');
+          const dataUrl = event.target.result;
 
-            // Disable transparent BG toggle if an image is loaded (conflicts)
-            this.transparentBgToggle.checked = false;
-            this.isTransparentBackground = false;
-          });
+          // Apply to CSS Container (Visuals only)
+          this.canvasContainer.style.backgroundImage = `url(${dataUrl})`;
+          this.clearBgButton.classList.remove('hidden');
+
+          // Store Image Object for Recording/Saving Compositing
+          this.uploadedImageElement = new Image();
+          this.uploadedImageElement.src = dataUrl;
+
+          // Ensure Scene BG is null so it's transparent in WebGL
+          this.scene.background = null;
+
+          // Disable transparent BG toggle if an image is loaded (conflicts conceptually)
+          this.transparentBgToggle.checked = false;
+          this.isTransparentBackground = false;
         };
         reader.readAsDataURL(file);
       });
 
       // 3. Clear Background
       this.clearBgButton.addEventListener('click', () => {
-        this.scene.background = null;
-        this.bgImageUpload.value = ''; // Reset input
+        this.canvasContainer.style.backgroundImage = '';
+        this.uploadedImageElement = null;
+        this.bgImageUpload.value = '';
         this.clearBgButton.classList.add('hidden');
       });
       // --- END SPOTIFY CANVAS TOOLS LISTENERS ---
@@ -954,6 +1048,37 @@
       });
       this.rotationSlider.addEventListener('input', (e) => {
         this.rotationSpeed = parseFloat(e.target.value);
+      });
+
+      // --- TRANSFORM LISTENERS (UPDATED for Lens Shift) ---
+      this.posXSlider.addEventListener('input', (e) => {
+        this.offsetX = parseFloat(e.target.value);
+        this.posXVal.textContent = this.offsetX;
+        this.updateCameraOffset();
+      });
+      this.posYSlider.addEventListener('input', (e) => {
+        this.offsetY = parseFloat(e.target.value);
+        this.posYVal.textContent = this.offsetY;
+        this.updateCameraOffset();
+      });
+      this.scaleSlider.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        this.scaleVal.textContent = val;
+        this.meshGroup.scale.set(val, val, val);
+      });
+      this.resetTransformBtn.addEventListener('click', () => {
+        this.posXSlider.value = 0;
+        this.posYSlider.value = 0;
+        this.scaleSlider.value = 1;
+        this.posXVal.textContent = 0;
+        this.posYVal.textContent = 0;
+        this.scaleVal.textContent = 1;
+
+        this.offsetX = 0;
+        this.offsetY = 0;
+        this.meshGroup.scale.set(1, 1, 1);
+        this.camera.clearViewOffset();
+        this.camera.updateProjectionMatrix();
       });
 
       this.autoCameraToggle.addEventListener('change', (e) => {
@@ -1119,11 +1244,6 @@
     startRecording() {
       if (this.isRecording) return;
 
-      if (this.isTransparentBackground) {
-        this.originalRecordingAlpha = this.renderer.getClearAlpha();
-        this.renderer.setClearAlpha(0);
-      }
-
       this.isRecording = true;
       this.recordedChunks = [];
       this.recordingStatus.classList.remove('hidden');
@@ -1132,8 +1252,16 @@
 
       const duration = parseInt(this.recordingDurationInput.value) * 1000;
 
-      // Ensure we capture at the current resolution (which might be 9:16)
-      const stream = this.renderer.domElement.captureStream(30);
+      // --- Setup Composite Recording (BG Image + WebGL) ---
+      // We need a temporary canvas to draw both the BG image and the WebGL canvas
+      // so the stream contains both.
+      this.compositeCanvas = document.createElement('canvas');
+      this.compositeCanvas.width = this.renderer.domElement.width;
+      this.compositeCanvas.height = this.renderer.domElement.height;
+      this.compositeCtx = this.compositeCanvas.getContext('2d');
+
+      // Capture stream from the composite canvas, NOT the renderer
+      const stream = this.compositeCanvas.captureStream(30);
 
       const mimeTypes = [
         'video/webm; codecs=vp9',
@@ -1145,13 +1273,6 @@
       if (!supportedMimeType) {
         console.error("No supported MIME type for MediaRecorder");
         this.isRecording = false;
-        this.recordingStatus.classList.add('hidden');
-        this.startRecordingButton.disabled = false;
-        this.startRecordingButton.textContent = "Start Recording";
-        if (this.originalRecordingAlpha !== undefined) {
-          this.renderer.setClearAlpha(this.originalRecordingAlpha);
-          this.originalRecordingAlpha = undefined;
-        }
         return;
       }
 
@@ -1170,10 +1291,9 @@
         this.startRecordingButton.disabled = false;
         this.startRecordingButton.textContent = "Start Recording";
 
-        if (this.originalRecordingAlpha !== undefined) {
-          this.renderer.setClearAlpha(this.originalRecordingAlpha);
-          this.originalRecordingAlpha = undefined;
-        }
+        // Clean up composite canvas
+        this.compositeCanvas = null;
+        this.compositeCtx = null;
       };
 
       this.mediaRecorder.start();
@@ -1183,6 +1303,49 @@
           this.mediaRecorder.stop();
         }
       }, duration);
+    }
+
+    // Helper to draw the composite frame (called in animate)
+    renderCompositeFrame() {
+      if (!this.compositeCtx || !this.renderer.domElement) return;
+
+      const width = this.compositeCanvas.width;
+      const height = this.compositeCanvas.height;
+
+      // 1. Draw Background
+      if (this.uploadedImageElement && !this.isTransparentBackground) {
+        // Simulate background-size: cover
+        const img = this.uploadedImageElement;
+        const imgRatio = img.width / img.height;
+        const canvasRatio = width / height;
+        let drawWidth, drawHeight, offsetX, offsetY;
+
+        if (imgRatio > canvasRatio) {
+          drawHeight = height;
+          drawWidth = img.width * (height / img.height);
+          offsetX = (width - drawWidth) / 2;
+          offsetY = 0;
+        } else {
+          drawWidth = width;
+          drawHeight = img.height * (width / img.width);
+          offsetX = 0;
+          offsetY = (height - drawHeight) / 2;
+        }
+
+        this.compositeCtx.fillStyle = '#111'; // Fallback color
+        this.compositeCtx.fillRect(0, 0, width, height);
+        this.compositeCtx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+      } else {
+        // Transparent or Black bg
+        this.compositeCtx.clearRect(0, 0, width, height);
+        if(!this.isTransparentBackground) {
+          this.compositeCtx.fillStyle = '#000';
+          this.compositeCtx.fillRect(0,0,width,height);
+        }
+      }
+
+      // 2. Draw WebGL Canvas on top
+      this.compositeCtx.drawImage(this.renderer.domElement, 0, 0);
     }
 
     downloadRecording() {
@@ -1209,45 +1372,46 @@
 
     saveImage() {
       try {
-        const originalAlpha = this.renderer.getClearAlpha();
-        if (this.isTransparentBackground) {
-          this.renderer.setClearAlpha(0);
-        }
-
         const filename = `glitch-visualizer-${this.isPortraitMode ? 'portrait' : 'landscape'}${this.isTransparentBackground ? '-transparent' : ''}.png`;
 
-        if (!this.isPortraitMode) {
-          if (this.isTransparentBackground) {
-            this.composer.render();
+        // Create a temporary canvas for composition
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = this.renderer.domElement.width;
+        tempCanvas.height = this.renderer.domElement.height;
+        const ctx = tempCanvas.getContext('2d');
+
+        // 1. Draw Background Image (simulating CSS 'cover')
+        if (this.uploadedImageElement && !this.isTransparentBackground) {
+          const width = tempCanvas.width;
+          const height = tempCanvas.height;
+          const img = this.uploadedImageElement;
+
+          // Calculate 'cover' fit
+          const imgRatio = img.width / img.height;
+          const canvasRatio = width / height;
+          let drawWidth, drawHeight, offsetX, offsetY;
+
+          if (imgRatio > canvasRatio) {
+            drawHeight = height;
+            drawWidth = img.width * (height / img.height);
+            offsetX = (width - drawWidth) / 2;
+            offsetY = 0;
+          } else {
+            drawWidth = width;
+            drawHeight = img.height * (width / img.width);
+            offsetX = 0;
+            offsetY = (height - drawHeight) / 2;
           }
-          const dataURL = this.renderer.domElement.toDataURL('image/png');
-          this.downloadDataURL(dataURL, filename);
 
-        } else {
-          const originalWidth = window.innerWidth;
-          const originalHeight = window.innerHeight;
-          const newHeight = originalHeight;
-          const newWidth = Math.floor(newHeight * (9 / 16));
-
-          try {
-            // Note: If using the Force Portrait toggle, updateSizes will handle this automatically.
-            // But for snapshot consistency, we might force it here if toggle is OFF but checkbox ON.
-            this.updateSizes(newWidth, newHeight);
-            this.composer.render();
-            const dataURL = this.renderer.domElement.toDataURL('image/png');
-            this.downloadDataURL(dataURL, filename);
-
-          } catch (e) {
-            console.error("Error saving portrait image:", e);
-          } finally {
-            // Restore proper size based on current window/toggle state
-            this.onWindowResize();
-          }
+          ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
         }
 
-        if (this.isTransparentBackground) {
-          this.renderer.setClearAlpha(originalAlpha);
-        }
+        // 2. Draw WebGL Content
+        this.composer.render(); // Ensure fresh render
+        ctx.drawImage(this.renderer.domElement, 0, 0);
+
+        const dataURL = tempCanvas.toDataURL('image/png');
+        this.downloadDataURL(dataURL, filename);
 
       } catch (e) {
         console.error("Error saving image:", e);
@@ -1274,6 +1438,9 @@
     }
 
     updateSizes(width, height) {
+      this.currentWidth = width;
+      this.currentHeight = height;
+
       const pixelRatio = this.renderer.getPixelRatio();
       const canvasWidth = Math.floor(width * pixelRatio);
       const canvasHeight = Math.floor(height * pixelRatio);
@@ -1281,12 +1448,36 @@
       this.camera.aspect = width / height;
       this.camera.updateProjectionMatrix();
 
+      // IMPORTANT: Re-apply offset after resize/aspect change
+      this.updateCameraOffset();
+
       this.renderer.setSize(width, height);
       this.composer.setSize(width, height);
 
       if (this.smaaPass) {
         this.smaaPass.setSize(canvasWidth, canvasHeight);
       }
+    }
+
+    updateCameraOffset() {
+      // Calculate pixel offsets based on slider values (-5 to 5)
+      // Mapping -5..5 to approximately -halfScreen..halfScreen
+      // Note: setViewOffset x is "x coordinate of the top-left corner".
+      // To move the object RIGHT, we must shift the view window LEFT (negative x).
+      // Since slider + is Right, we invert.
+
+      const xPixelOffset = -this.offsetX * (this.currentWidth / 5);
+      const yPixelOffset = this.offsetY * (this.currentHeight / 5);
+
+      this.camera.setViewOffset(
+        this.currentWidth,
+        this.currentHeight,
+        xPixelOffset,
+        yPixelOffset,
+        this.currentWidth,
+        this.currentHeight
+      );
+      this.camera.updateProjectionMatrix();
     }
 
     animate() {
@@ -1389,6 +1580,11 @@
       }
 
       this.composer.render();
+
+      // Update Composite Canvas if Recording
+      if (this.isRecording) {
+        this.renderCompositeFrame();
+      }
     }
   }
 
