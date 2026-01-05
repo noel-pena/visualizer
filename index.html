@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Glitch Visualizer v4.3 - Fixed Perspective</title>
+  <title>Glitch Visualizer v4.4 - High Quality Export</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     html, body {
@@ -98,26 +98,21 @@
 </head>
 <body>
 
-<!-- Updated Container for Canvas -->
 <div id="canvas-container">
   <canvas id="visualizer-canvas"></canvas>
 </div>
 
-<!-- Controls Section -->
 <div id="controls" class="text-white max-h-screen flex flex-col">
-  <!-- Toggle Button -->
   <button id="toggle-controls" class="flex items-center text-left flex-shrink-0">
     <svg id="arrow-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 transition-transform duration-300 transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
     </svg>
   </button>
 
-  <!-- Collapsible Content -->
   <div id="controls-content" class="transition-all duration-300 ease-in-out max-h-0 opacity-0 overflow-y-auto">
     <h2 class="text-lg font-semibold pt-2">Controls</h2>
     <div class="mt-4 space-y-4">
 
-      <!-- Auto-Rotate Toggle -->
       <label for="auto-rotate-toggle" class="flex items-center justify-between cursor-pointer">
         <span class="mr-3 text-sm">Auto-Rotate</span>
         <div class="relative">
@@ -127,13 +122,11 @@
         </div>
       </label>
 
-      <!-- Rotation Speed Slider -->
       <div id="rotation-slider-container">
         <label for="rotation-slider">Rotation Speed</label>
         <input type="range" id="rotation-slider" min="0" max="0.05" step="0.001" value="0.005" class="w-full mb-2 cursor-pointer">
       </div>
 
-      <!-- AUTO-CAMERA TOGGLE -->
       <label for="auto-camera-toggle" class="flex items-center justify-between cursor-pointer">
         <span class="mr-3 text-sm">Auto-Camera</span>
         <div class="relative">
@@ -143,11 +136,9 @@
         </div>
       </label>
 
-      <!-- *** SHAPE CONTROLS *** -->
       <div class="pt-4 border-t border-gray-600">
         <h3 class="text-md font-semibold mb-2">Shapes</h3>
 
-        <!-- Shape Selector -->
         <div>
           <label for="shape-select">Shape</label>
           <select id="shape-select">
@@ -158,7 +149,6 @@
           </select>
         </div>
 
-        <!-- MATERIAL SELECTOR -->
         <div>
           <label for="material-select">Material</label>
           <select id="material-select">
@@ -168,7 +158,6 @@
           </select>
         </div>
 
-        <!-- SMOOTH SURFACE TOGGLE -->
         <label for="smooth-surface-toggle" class="flex items-center cursor-pointer">
           <span class="mr-3 text-sm">Smooth Surface</span>
           <div class="relative">
@@ -178,7 +167,6 @@
           </div>
         </label>
 
-        <!-- SHAPE COUNT SLIDER -->
         <div class="mt-2">
           <label for="shape-count-slider">Shape Count</label>
           <div class="flex justify-between items-center mb-2">
@@ -187,9 +175,7 @@
           </div>
         </div>
 
-        <!-- Shape-Specific Controls Container -->
         <div id="shape-controls-container">
-          <!-- Sphere Controls -->
           <div id="sphere-controls">
             <label for="detail-slider">Sphere Detail</label>
             <div class="flex justify-between items-center mb-2">
@@ -197,7 +183,6 @@
               <span id="detail-value" class="text-sm text-gray-300 w-6 text-right">3</span>
             </div>
           </div>
-          <!-- Box Controls -->
           <div id="box-controls" class="hidden">
             <label for="box-segments-slider">Box Segments</label>
             <div class="flex justify-between items-center mb-2">
@@ -205,7 +190,6 @@
               <span id="box-segments-value" class="text-sm text-gray-300 w-6 text-right">1</span>
             </div>
           </div>
-          <!-- Torus Controls -->
           <div id="torus-controls" class="hidden">
             <label for="torus-radial-slider">Torus Radial Segments</label>
             <div class="flex justify-between items-center mb-2">
@@ -218,7 +202,6 @@
               <span id="torus-tubular-value" class="text-sm text-gray-300 w-6 text-right">100</span>
             </div>
           </div>
-          <!-- Cone Controls -->
           <div id="cone-controls" class="hidden">
             <label for="cone-segments-slider">Cone Radial Segments</label>
             <div class="flex justify-between items-center mb-2">
@@ -229,11 +212,9 @@
         </div>
       </div>
 
-      <!-- *** TRANSFORM CONTROLS *** -->
       <div class="pt-4 border-t border-gray-600">
         <h3 class="text-md font-semibold mb-2">Transform (No Distortion)</h3>
 
-        <!-- Position X -->
         <div>
           <label for="pos-x-slider" class="flex justify-between">
             <span>Position X (Left/Right)</span>
@@ -242,7 +223,6 @@
           <input type="range" id="pos-x-slider" min="-5" max="5" step="0.1" value="0" class="w-full cursor-pointer">
         </div>
 
-        <!-- Position Y -->
         <div>
           <label for="pos-y-slider" class="flex justify-between">
             <span>Position Y (Up/Down)</span>
@@ -251,7 +231,6 @@
           <input type="range" id="pos-y-slider" min="-5" max="5" step="0.1" value="0" class="w-full cursor-pointer">
         </div>
 
-        <!-- Scale -->
         <div>
           <label for="scale-slider" class="flex justify-between">
             <span>Scale (Size)</span>
@@ -264,10 +243,8 @@
       </div>
 
 
-      <!-- --- EFFECTS CONTROLS --- -->
       <div class="pt-4 border-t border-gray-600">
         <h3 class="text-md font-semibold mb-2">Effects</h3>
-        <!-- BPM Slider -->
         <div>
           <label for="bpm-slider">BPM</label>
           <div class="flex justify-between items-center mb-2">
@@ -276,7 +253,6 @@
           </div>
         </div>
 
-        <!-- BPM PULSE Toggle Switch -->
         <label for="pulse-effects-toggle" class="flex items-center justify-between cursor-pointer">
           <span class="mr-3 text-sm">BPM Pulse Effects</span>
           <div class="relative">
@@ -286,7 +262,6 @@
           </div>
         </label>
 
-        <!-- RANDOM GLITCH TOGGLE -->
         <label for="random-glitch-toggle" class="flex items-center justify-between cursor-pointer mt-2">
           <span class="mr-3 text-sm">Random Glitch</span>
           <div class="relative">
@@ -296,7 +271,6 @@
           </div>
         </label>
 
-        <!-- Film Grain Sliders -->
         <div class="mt-4">
           <label for="film-noise-slider">Film Noise</label>
           <input type="range" id="film-noise-slider" min="0" max="2" step="0.05" value="0.2" class="w-full mb-2 cursor-pointer">
@@ -306,7 +280,6 @@
           <input type="range" id="film-scanline-slider" min="0" max="1" step="0.01" value="0.1" class="w-full mb-2 cursor-pointer">
         </div>
 
-        <!-- AFTERIMAGE CONTROLS -->
         <label for="afterimage-toggle" class="flex items-center justify-between cursor-pointer mt-4">
           <span class="mr-3 text-sm">Afterimage (Trails)</span>
           <div class="relative">
@@ -320,7 +293,6 @@
           <input type="range" id="afterimage-damp-slider" min="0.5" max="0.99" step="0.01" value="0.9" class="w-full mb-2 cursor-pointer">
         </div>
 
-        <!-- DOT SCREEN CONTROLS -->
         <label for="dot-screen-toggle" class="flex items-center justify-between cursor-pointer mt-2">
           <span class="mr-3 text-sm">Dot Screen</span>
           <div class="relative">
@@ -335,11 +307,9 @@
         </div>
       </div>
 
-      <!-- *** SPOTIFY CANVAS TOOLS *** -->
       <div class="pt-4 border-t border-gray-600">
         <h3 class="text-md font-semibold mb-2">Spotify Canvas Tools</h3>
 
-        <!-- Aspect Ratio Toggle -->
         <label for="force-portrait-toggle" class="flex items-center justify-between cursor-pointer">
           <span class="mr-3 text-sm">Force 9:16 Mode</span>
           <div class="relative">
@@ -349,7 +319,6 @@
           </div>
         </label>
 
-        <!-- Background Image Upload -->
         <div class="mt-4">
           <label class="block text-sm mb-2">Background Image</label>
           <input type="file" id="bg-image-upload" accept="image/*" class="text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700"/>
@@ -358,7 +327,6 @@
       </div>
 
 
-      <!-- Recording Section -->
       <div class="pt-4 border-t border-gray-600">
         <h3 class="text-md font-semibold mb-2">Recording & Saving</h3>
         <div class="flex items-center justify-between mb-2">
@@ -369,7 +337,6 @@
           Start Recording
         </button>
 
-        <!-- IMAGE ORIENTATION TOGGLE -->
         <label for="image-orientation-toggle" class="flex items-center justify-between cursor-pointer mt-4">
           <span class="mr-3 text-sm">Portrait Snapshot (9:16)</span>
           <div class="relative">
@@ -379,7 +346,6 @@
           </div>
         </label>
 
-        <!-- TRANSPARENT BG TOGGLE -->
         <label for="transparent-bg-toggle" class="flex items-center justify-between cursor-pointer mt-2">
           <span class="mr-3 text-sm">Transparent Background</span>
           <div class="relative">
@@ -393,7 +359,7 @@
           Save Snapshot
         </button>
         <span id="recording-status" class="text-sm text-yellow-300 mt-2 hidden">Recording...</span>
-        <p class="text-xs text-gray-400 mt-2">Saves a .webm file. The clean background will be composited into the video automatically.</p>
+        <p class="text-xs text-gray-400 mt-2">Saves a video file (MP4 if supported, else WebM). The clean background will be composited into the video automatically.</p>
       </div>
 
     </div>
@@ -1260,14 +1226,17 @@
       this.compositeCanvas.height = this.renderer.domElement.height;
       this.compositeCtx = this.compositeCanvas.getContext('2d');
 
-      // Capture stream from the composite canvas, NOT the renderer
-      const stream = this.compositeCanvas.captureStream(30);
+      // 1. IMPROVEMENT: Capture at 60 FPS instead of 30 for smoother motion
+      const stream = this.compositeCanvas.captureStream(60);
 
+      // 2. IMPROVEMENT: Smart MIME Type Selection (Prefer MP4, fallback to High Quality WebM)
       const mimeTypes = [
-        'video/webm; codecs=vp9',
-        'video/webm; codecs=vp8',
+        'video/mp4',             // Safari / Native MP4 support
+        'video/webm;codecs=vp9', // High quality Chrome/Firefox
+        'video/webm;codecs=vp8',
         'video/webm'
       ];
+
       const supportedMimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type));
 
       if (!supportedMimeType) {
@@ -1276,7 +1245,19 @@
         return;
       }
 
-      this.mediaRecorder = new MediaRecorder(stream, { mimeType: supportedMimeType });
+      // 3. IMPROVEMENT: Set High Bitrate (25 Mbps) for crisp 1080p/4k quality
+      const options = {
+        mimeType: supportedMimeType,
+        videoBitsPerSecond: 25000000 // 25 Mbps (Standard is usually ~2.5 Mbps)
+      };
+
+      try {
+        this.mediaRecorder = new MediaRecorder(stream, options);
+      } catch (e) {
+        console.error("Failed to create MediaRecorder with options:", e);
+        // Fallback without options if specific bitrate fails
+        this.mediaRecorder = new MediaRecorder(stream);
+      }
 
       this.mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -1285,7 +1266,11 @@
       };
 
       this.mediaRecorder.onstop = () => {
-        this.downloadRecording();
+        // Determine file extension based on the actual MIME type used
+        const isMp4 = supportedMimeType.includes('mp4');
+        const extension = isMp4 ? 'mp4' : 'webm';
+
+        this.downloadRecording(extension);
         this.isRecording = false;
         this.recordingStatus.classList.add('hidden');
         this.startRecordingButton.disabled = false;
@@ -1348,10 +1333,12 @@
       this.compositeCtx.drawImage(this.renderer.domElement, 0, 0);
     }
 
-    downloadRecording() {
-      const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
+    downloadRecording(extension = 'webm') {
+      const mimeType = extension === 'mp4' ? 'video/mp4' : 'video/webm';
+      const blob = new Blob(this.recordedChunks, { type: mimeType });
       const url = URL.createObjectURL(blob);
-      this.downloadDataURL(url, 'glitch-visualizer.webm');
+      const filename = `glitch-visualizer-export.${extension}`;
+      this.downloadDataURL(url, filename);
     }
 
     downloadDataURL(dataURL, filename) {
