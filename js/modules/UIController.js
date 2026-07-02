@@ -4,150 +4,114 @@ export class UIController {
   }
 
   init() {
+    this.setupSidebar();
     this.setupEventListeners();
-    const initialShape = document.getElementById('shape-select')?.value || 'Sphere';
-    this.updateShapeControls(initialShape);
   }
 
-  updateShapeControls(shape) {
-    const sphereControls = document.getElementById('sphere-controls');
-    const boxControls = document.getElementById('box-controls');
-    const torusControls = document.getElementById('torus-controls');
-    const coneControls = document.getElementById('cone-controls');
+  setupSidebar() {
+    const header = document.getElementById('sidebar-header');
+    const content = document.getElementById('sidebar-content');
+    const icon = document.getElementById('sidebar-icon');
 
-    sphereControls?.classList.add('hidden');
-    boxControls?.classList.add('hidden');
-    torusControls?.classList.add('hidden');
-    coneControls?.classList.add('hidden');
-
-    switch (shape) {
-      case 'Box':
-        boxControls?.classList.remove('hidden');
-        break;
-      case 'Torus':
-        torusControls?.classList.remove('hidden');
-        break;
-      case 'Cone':
-        coneControls?.classList.remove('hidden');
-        break;
-      case 'Sphere':
-      default:
-        sphereControls?.classList.remove('hidden');
-        break;
+    // Desktop collapse
+    if (header && content && icon) {
+      header.addEventListener('click', () => {
+        // Only trigger desktop collapse if we are not on mobile (sidebar is relatively positioned)
+        if (window.innerWidth >= 768) {
+          const isCollapsed = content.style.display === 'none';
+          if (isCollapsed) {
+            content.style.display = 'block';
+            icon.style.transform = 'rotate(0deg)';
+          } else {
+            content.style.display = 'none';
+            icon.style.transform = 'rotate(-90deg)';
+          }
+        }
+      });
     }
+
+    // Mobile menu toggle
+    const mobileBtn = document.getElementById('mobile-menu-btn');
+    const closeBtn = document.getElementById('mobile-close-btn');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('mobile-overlay');
+
+    const openMobileMenu = () => {
+      sidebar.classList.remove('-translate-x-full');
+      overlay.classList.remove('hidden');
+    };
+
+    const closeMobileMenu = () => {
+      sidebar.classList.add('-translate-x-full');
+      overlay.classList.add('hidden');
+    };
+
+    if (mobileBtn) mobileBtn.addEventListener('click', openMobileMenu);
+    if (closeBtn) closeBtn.addEventListener('click', closeMobileMenu);
+    if (overlay) overlay.addEventListener('click', closeMobileMenu);
   }
 
   setupEventListeners() {
-    const rendererManager = this.app.rendererManager;
-    const meshManager = this.app.meshManager;
-    const effectController = this.app.effectController;
-    const postProcessor = this.app.postProcessor;
-    const recorder = this.app.recorder;
+    const { rendererManager, meshManager, effectController, postProcessor, recorder, audioManager } = this.app;
 
-    // --- Auto Rotate & Rotation Speed ---
-    const autoRotateToggle = document.getElementById('auto-rotate-toggle');
-    const rotationSliderContainer = document.getElementById('rotation-slider-container');
-    const rotationSlider = document.getElementById('rotation-slider');
-
-    if (autoRotateToggle && rotationSliderContainer) {
-      rotationSliderContainer.style.display = autoRotateToggle.checked ? 'none' : 'block';
-      autoRotateToggle.addEventListener('change', (e) => {
-        if (effectController) {
-          effectController.isAutoRotate = e.target.checked;
+    // --- Scene Mode ---
+    const sceneModeSelect = document.getElementById('scene-mode-select');
+    const geometrySection = document.getElementById('geometry-section');
+    if (sceneModeSelect) {
+      sceneModeSelect.addEventListener('change', (e) => {
+        const mode = e.target.value;
+        if (meshManager) {
+          meshManager.setSceneMode(mode);
         }
-        rotationSliderContainer.style.display = e.target.checked ? 'none' : 'block';
+        // Hide shape options if not in Shapes mode
+        if (geometrySection) {
+          geometrySection.style.display = mode === 'Shapes' ? 'block' : 'none';
+        }
       });
     }
 
+    // --- Motion ---
+    const autoRotateToggle = document.getElementById('auto-rotate-toggle');
+    if (autoRotateToggle) {
+      autoRotateToggle.addEventListener('change', (e) => {
+        if (effectController) effectController.isAutoRotate = e.target.checked;
+      });
+    }
+
+    const rotationSlider = document.getElementById('rotation-slider');
     if (rotationSlider) {
       rotationSlider.addEventListener('input', (e) => {
-        if (effectController) {
-          effectController.rotationSpeed = parseFloat(e.target.value);
-        }
+        if (effectController) effectController.rotationSpeed = parseFloat(e.target.value);
       });
     }
 
-    // --- Transform UI (Position & Scale) ---
-    const posXSlider = document.getElementById('pos-x-slider');
-    const posYSlider = document.getElementById('pos-y-slider');
     const scaleSlider = document.getElementById('scale-slider');
-    const posXVal = document.getElementById('pos-x-val');
-    const posYVal = document.getElementById('pos-y-val');
-    const scaleVal = document.getElementById('scale-val');
-    const resetTransformBtn = document.getElementById('reset-transform-btn');
-
-    if (posXSlider) {
-      posXSlider.addEventListener('input', (e) => {
-        if (rendererManager) {
-          rendererManager.offsetX = parseFloat(e.target.value);
-          if (posXVal) posXVal.textContent = rendererManager.offsetX;
-          rendererManager.updateCameraOffset();
-        }
-      });
-    }
-
-    if (posYSlider) {
-      posYSlider.addEventListener('input', (e) => {
-        if (rendererManager) {
-          rendererManager.offsetY = parseFloat(e.target.value);
-          if (posYVal) posYVal.textContent = rendererManager.offsetY;
-          rendererManager.updateCameraOffset();
-        }
-      });
-    }
-
     if (scaleSlider) {
       scaleSlider.addEventListener('input', (e) => {
-        const val = parseFloat(e.target.value);
-        if (scaleVal) scaleVal.textContent = val;
-        if (meshManager) {
-          meshManager.setScale(val);
-        }
+        if (meshManager) meshManager.baseScale = parseFloat(e.target.value);
       });
     }
 
-    if (resetTransformBtn) {
-      resetTransformBtn.addEventListener('click', () => {
-        if (posXSlider) posXSlider.value = 0;
-        if (posYSlider) posYSlider.value = 0;
-        if (scaleSlider) scaleSlider.value = 1;
-        if (posXVal) posXVal.textContent = 0;
-        if (posYVal) posYVal.textContent = 0;
-        if (scaleVal) scaleVal.textContent = 1;
-
-        if (rendererManager) {
-          rendererManager.offsetX = 0;
-          rendererManager.offsetY = 0;
-          if (rendererManager.camera) {
-            rendererManager.camera.clearViewOffset();
-            rendererManager.camera.updateProjectionMatrix();
-          }
-        }
-        if (meshManager) {
-          meshManager.setScale(1);
-        }
-      });
-    }
-
-    // --- Camera Controls ---
-    const autoCameraToggle = document.getElementById('auto-camera-toggle');
-    if (autoCameraToggle) {
-      autoCameraToggle.addEventListener('change', (e) => {
-        if (effectController) {
-          effectController.isAutoCamera = e.target.checked;
-        }
-      });
-    }
-
-    // --- Shape Setup & Parameters ---
+    // --- Geometry ---
     const shapeSelect = document.getElementById('shape-select');
     if (shapeSelect) {
       shapeSelect.addEventListener('change', (e) => {
-        const shape = e.target.value;
-        this.updateShapeControls(shape);
         if (meshManager) {
-          meshManager.currentShape = shape;
+          meshManager.currentShape = e.target.value;
           meshManager.updateMeshInstances();
+        }
+      });
+    }
+
+    const materialSelect = document.getElementById('material-select');
+    if (materialSelect) {
+      materialSelect.addEventListener('change', (e) => {
+        if (meshManager) {
+          meshManager.materialMode = e.target.value;
+          meshManager.updateMeshInstances();
+        }
+        if (postProcessor && postProcessor.huePass) {
+          postProcessor.huePass.enabled = (e.target.value === 'Hue');
         }
       });
     }
@@ -165,105 +129,40 @@ export class UIController {
       });
     }
 
-    const detailSlider = document.getElementById('detail-slider');
-    const detailValue = document.getElementById('detail-value');
-    if (detailSlider) {
-      detailSlider.addEventListener('input', (e) => {
-        const val = parseInt(e.target.value);
-        if (detailValue) detailValue.textContent = val;
+    const layoutSelect = document.getElementById('layout-select');
+    if (layoutSelect) {
+      layoutSelect.addEventListener('change', (e) => {
         if (meshManager) {
-          meshManager.sphereDetail = val;
+          meshManager.layoutMode = e.target.value;
           meshManager.updateMeshInstances();
         }
       });
     }
 
-    const boxSegmentsSlider = document.getElementById('box-segments-slider');
-    const boxSegmentsValue = document.getElementById('box-segments-value');
-    if (boxSegmentsSlider) {
-      boxSegmentsSlider.addEventListener('input', (e) => {
-        const val = parseInt(e.target.value);
-        if (boxSegmentsValue) boxSegmentsValue.textContent = val;
-        if (meshManager) {
-          meshManager.boxSegments = val;
-          meshManager.updateMeshInstances();
+    // --- Effects ---
+    const bloomToggle = document.getElementById('bloom-toggle');
+    if (bloomToggle) {
+      bloomToggle.addEventListener('change', (e) => {
+        if (postProcessor && postProcessor.bloomPass) {
+          postProcessor.bloomPass.enabled = e.target.checked;
         }
       });
     }
 
-    const torusRadialSlider = document.getElementById('torus-radial-slider');
-    const torusRadialValue = document.getElementById('torus-radial-value');
-    if (torusRadialSlider) {
-      torusRadialSlider.addEventListener('input', (e) => {
-        const val = parseInt(e.target.value);
-        if (torusRadialValue) torusRadialValue.textContent = val;
-        if (meshManager) {
-          meshManager.torusRadialSeg = val;
-          meshManager.updateMeshInstances();
+    const sobelToggle = document.getElementById('sobel-toggle');
+    if (sobelToggle) {
+      sobelToggle.addEventListener('change', (e) => {
+        if (postProcessor && postProcessor.sobelPass) {
+          postProcessor.sobelPass.enabled = e.target.checked;
         }
       });
     }
 
-    const torusTubularSlider = document.getElementById('torus-tubular-slider');
-    const torusTubularValue = document.getElementById('torus-tubular-value');
-    if (torusTubularSlider) {
-      torusTubularSlider.addEventListener('input', (e) => {
-        const val = parseInt(e.target.value);
-        if (torusTubularValue) torusTubularValue.textContent = val;
-        if (meshManager) {
-          meshManager.torusTubularSeg = val;
-          meshManager.updateMeshInstances();
-        }
-      });
-    }
-
-    const coneSegmentsSlider = document.getElementById('cone-segments-slider');
-    const coneSegmentsValue = document.getElementById('cone-segments-value');
-    if (coneSegmentsSlider) {
-      coneSegmentsSlider.addEventListener('input', (e) => {
-        const val = parseInt(e.target.value);
-        if (coneSegmentsValue) coneSegmentsValue.textContent = val;
-        if (meshManager) {
-          meshManager.coneRadialSeg = val;
-          meshManager.updateMeshInstances();
-        }
-      });
-    }
-
-    // --- Material & Shading ---
-    const materialSelect = document.getElementById('material-select');
-    if (materialSelect) {
-      materialSelect.addEventListener('change', (e) => {
-        const mat = e.target.value;
-        if (postProcessor && postProcessor.huePass) {
-          postProcessor.huePass.enabled = (mat === 'Hue');
-        }
-        if (meshManager) {
-          meshManager.materialMode = mat;
-          meshManager.updateMeshInstances();
-        }
-      });
-    }
-
-    const smoothSurfaceToggle = document.getElementById('smooth-surface-toggle');
-    if (smoothSurfaceToggle) {
-      smoothSurfaceToggle.addEventListener('change', (e) => {
-        if (meshManager) {
-          meshManager.isSmoothSurface = e.target.checked;
-          meshManager.updateMeshInstances();
-        }
-      });
-    }
-
-    // --- BPM & Effects ---
-    const bpmSlider = document.getElementById('bpm-slider');
-    const bpmValue = document.getElementById('bpm-value');
-    if (bpmSlider) {
-      bpmSlider.addEventListener('input', (e) => {
-        const val = parseFloat(e.target.value);
-        if (bpmValue) bpmValue.textContent = val;
-        if (effectController) {
-          effectController.bpm = val;
+    const halftoneToggle = document.getElementById('halftone-toggle');
+    if (halftoneToggle) {
+      halftoneToggle.addEventListener('change', (e) => {
+        if (postProcessor && postProcessor.halftonePass) {
+          postProcessor.halftonePass.enabled = e.target.checked;
         }
       });
     }
@@ -273,15 +172,9 @@ export class UIController {
       pulseEffectsToggle.addEventListener('change', (e) => {
         if (effectController) {
           effectController.isPulseEffectsEnabled = e.target.checked;
-          if (!effectController.isPulseEffectsEnabled && postProcessor) {
-            if (postProcessor.glitchPass) postProcessor.glitchPass.enabled = false;
-            if (postProcessor.rgbShiftPass?.uniforms?.amount) {
-              postProcessor.rgbShiftPass.uniforms['amount'].value = 0.0;
-            }
-            if (postProcessor.filmPass?.uniforms?.nIntensity && postProcessor.filmPass?.uniforms?.sIntensity) {
-              postProcessor.filmPass.uniforms['nIntensity'].value = postProcessor.baseFilmNoise;
-              postProcessor.filmPass.uniforms['sIntensity'].value = postProcessor.baseFilmScanlines;
-            }
+          if (!e.target.checked && postProcessor) {
+             if (postProcessor.glitchPass) postProcessor.glitchPass.enabled = false;
+             if (postProcessor.rgbShiftPass?.uniforms?.amount) postProcessor.rgbShiftPass.uniforms['amount'].value = 0.0;
           }
         }
       });
@@ -290,33 +183,7 @@ export class UIController {
     const randomGlitchToggle = document.getElementById('random-glitch-toggle');
     if (randomGlitchToggle) {
       randomGlitchToggle.addEventListener('change', (e) => {
-        if (effectController) {
-          effectController.isRandomGlitchEnabled = e.target.checked;
-        }
-      });
-    }
-
-    const filmNoiseSlider = document.getElementById('film-noise-slider');
-    if (filmNoiseSlider) {
-      filmNoiseSlider.addEventListener('input', (e) => {
-        if (postProcessor) {
-          postProcessor.baseFilmNoise = parseFloat(e.target.value);
-          if ((!effectController || !effectController.isPulseEffectsEnabled || !postProcessor.glitchPass.enabled) && postProcessor.filmPass?.uniforms?.nIntensity) {
-            postProcessor.filmPass.uniforms['nIntensity'].value = postProcessor.baseFilmNoise;
-          }
-        }
-      });
-    }
-
-    const filmScanlineSlider = document.getElementById('film-scanline-slider');
-    if (filmScanlineSlider) {
-      filmScanlineSlider.addEventListener('input', (e) => {
-        if (postProcessor) {
-          postProcessor.baseFilmScanlines = parseFloat(e.target.value);
-          if ((!effectController || !effectController.isPulseEffectsEnabled || !postProcessor.glitchPass.enabled) && postProcessor.filmPass?.uniforms?.sIntensity) {
-            postProcessor.filmPass.uniforms['sIntensity'].value = postProcessor.baseFilmScanlines;
-          }
-        }
+        if (effectController) effectController.isRandomGlitchEnabled = e.target.checked;
       });
     }
 
@@ -329,148 +196,155 @@ export class UIController {
       });
     }
 
-    const afterimageSlider = document.getElementById('afterimage-damp-slider');
-    if (afterimageSlider) {
-      afterimageSlider.addEventListener('input', (e) => {
-        if (postProcessor && postProcessor.afterimagePass?.uniforms?.damp) {
-          postProcessor.afterimagePass.uniforms['damp'].value = parseFloat(e.target.value);
+    const kaleidoscopeToggle = document.getElementById('kaleidoscope-toggle');
+    if (kaleidoscopeToggle) {
+      kaleidoscopeToggle.addEventListener('change', (e) => {
+        if (postProcessor && postProcessor.kaleidoPass) {
+          postProcessor.kaleidoPass.enabled = e.target.checked;
         }
       });
     }
 
-    const dotScreenToggle = document.getElementById('dot-screen-toggle');
-    if (dotScreenToggle) {
-      dotScreenToggle.addEventListener('change', (e) => {
-        if (postProcessor && postProcessor.dotScreenPass) {
-          postProcessor.dotScreenPass.enabled = e.target.checked;
+    const asciiToggle = document.getElementById('ascii-toggle');
+    if (asciiToggle) {
+      asciiToggle.addEventListener('change', (e) => {
+        if (postProcessor && postProcessor.asciiPass) {
+          postProcessor.asciiPass.enabled = e.target.checked;
         }
       });
     }
 
-    const dotScreenSlider = document.getElementById('dot-screen-scale-slider');
-    if (dotScreenSlider) {
-      dotScreenSlider.addEventListener('input', (e) => {
-        if (postProcessor && postProcessor.dotScreenPass?.uniforms?.scale) {
-          postProcessor.dotScreenPass.uniforms['scale'].value = parseFloat(e.target.value);
-        }
-      });
-    }
+    // --- Audio Controls ---
+    const audioUpload = document.getElementById('audio-upload');
+    const trackNameDisplay = document.getElementById('track-name-display');
+    const playPauseBtn = document.getElementById('play-pause-btn');
+    const playIcon = document.getElementById('play-icon');
+    const pauseIcon = document.getElementById('pause-icon');
+    const timeDisplay = document.getElementById('time-display');
+    const timelineContainer = document.getElementById('timeline-container');
+    const timelineProgress = document.getElementById('timeline-progress');
 
-    // --- Spotify Canvas Tools (9:16 portrait + BG image) ---
-    const forcePortraitToggle = document.getElementById('force-portrait-toggle');
-    if (forcePortraitToggle) {
-      forcePortraitToggle.addEventListener('change', (e) => {
-        const canvas = rendererManager?.renderer?.domElement;
-        if (canvas) {
-          if (e.target.checked) {
-            canvas.classList.add('portrait-mode');
-          } else {
-            canvas.classList.remove('portrait-mode');
-          }
-        }
-        if (rendererManager) {
-          rendererManager.onWindowResize();
-        }
-      });
-    }
-
-    const bgImageUpload = document.getElementById('bg-image-upload');
-    const canvasContainer = document.getElementById('canvas-container');
-    const clearBgButton = document.getElementById('clear-bg-button');
-    const transparentBgToggle = document.getElementById('transparent-bg-toggle');
-
-    if (bgImageUpload && canvasContainer) {
-      bgImageUpload.addEventListener('change', (e) => {
+    if (audioUpload && audioManager) {
+      audioUpload.addEventListener('change', (e) => {
         const file = e.target.files[0];
-        if (!file) return;
+        if (file) {
+          audioManager.loadFromFile(file);
+          trackNameDisplay.textContent = file.name.substring(0, 20) + (file.name.length > 20 ? '...' : '');
+          playPauseBtn.disabled = false;
+        }
+      });
+    }
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const dataUrl = event.target.result;
+    if (playPauseBtn && audioManager) {
+      playPauseBtn.addEventListener('click', () => {
+        audioManager.togglePlay();
+      });
 
-          // Apply background style to container
-          canvasContainer.style.backgroundImage = `url(${dataUrl})`;
-          if (clearBgButton) clearBgButton.classList.remove('hidden');
+      // Hook up Audio Manager callbacks to UI
+      audioManager.onPlay = () => {
+        playIcon.classList.add('hidden');
+        pauseIcon.classList.remove('hidden');
+      };
+      
+      audioManager.onPause = () => {
+        playIcon.classList.remove('hidden');
+        pauseIcon.classList.add('hidden');
+      };
 
-          // Set the image in Recorder for video/snapshot composites
-          if (recorder) {
-            recorder.uploadedImageElement = new Image();
-            recorder.uploadedImageElement.src = dataUrl;
-            recorder.isTransparentBackground = false;
-          }
-
-          if (rendererManager && rendererManager.scene) {
-            rendererManager.scene.background = null;
-          }
-
-          if (transparentBgToggle) {
-            transparentBgToggle.checked = false;
-          }
+      audioManager.onTimeUpdate = (currentTime, duration) => {
+        // Format time M:SS
+        const formatTime = (secs) => {
+          const m = Math.floor(secs / 60);
+          const s = Math.floor(secs % 60).toString().padStart(2, '0');
+          return `${m}:${s}`;
         };
-        reader.readAsDataURL(file);
-      });
-    }
+        timeDisplay.textContent = formatTime(currentTime);
 
-    if (clearBgButton) {
-      clearBgButton.addEventListener('click', () => {
-        if (canvasContainer) canvasContainer.style.backgroundImage = '';
-        if (recorder) {
-          recorder.uploadedImageElement = null;
+        // Update progress bar
+        if (duration > 0 && timelineProgress) {
+          const percent = (currentTime / duration) * 100;
+          timelineProgress.style.width = `${percent}%`;
         }
-        if (bgImageUpload) bgImageUpload.value = '';
-        clearBgButton.classList.add('hidden');
+      };
+
+      audioManager.onEnded = () => {
+        playIcon.classList.remove('hidden');
+        pauseIcon.classList.add('hidden');
+        if (timelineProgress) timelineProgress.style.width = '0%';
+        timeDisplay.textContent = '0:00';
+
+        // Auto-stop recording if the song finishes
+        if (recorder && recorder.isRecording && recorder.mediaRecorder) {
+          recorder.mediaRecorder.stop();
+          const startRecordingButton = document.getElementById('start-recording-button');
+          const recordBtnText = document.getElementById('record-btn-text');
+          if (recordBtnText) recordBtnText.textContent = "Record";
+          if (startRecordingButton) startRecordingButton.classList.remove('animate-pulse');
+        }
+      };
+    }
+
+    if (timelineContainer && audioManager) {
+      timelineContainer.addEventListener('click', (e) => {
+        if (!audioManager.isLoaded) return;
+        const rect = timelineContainer.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const percent = clickX / rect.width;
+        audioManager.seek(percent * audioManager.duration);
       });
     }
 
-    // --- Recording & Saving Snapshots ---
+
+    // --- Export Settings ---
+    const aspectRatioSelect = document.getElementById('aspect-ratio-select');
+    const qualitySelect = document.getElementById('quality-select');
+    
+    const updateResolution = () => {
+        if (rendererManager && aspectRatioSelect && qualitySelect) {
+            rendererManager.setRenderConfig(qualitySelect.value, aspectRatioSelect.value);
+        }
+    };
+
+    if (aspectRatioSelect) aspectRatioSelect.addEventListener('change', updateResolution);
+    if (qualitySelect) qualitySelect.addEventListener('change', updateResolution);
+
+    // Initial resolution setup
+    updateResolution();
+
     const startRecordingButton = document.getElementById('start-recording-button');
-    if (startRecordingButton) {
+    const recordBtnText = document.getElementById('record-btn-text');
+
+    if (startRecordingButton && recorder) {
       startRecordingButton.addEventListener('click', () => {
-        if (recorder && !recorder.isRecording) {
-          recorder.startRecording();
+        if (!recorder.isRecording) {
+           // Start Audio if not playing
+           if (audioManager && audioManager.isLoaded && !audioManager.isPlaying) {
+               audioManager.play();
+           }
+           
+           // Start recording and pass the audio stream
+           recorder.startRecording(audioManager ? audioManager.getStream() : null);
+           
+           recordBtnText.textContent = "Stop";
+           startRecordingButton.classList.add('animate-pulse');
+        } else {
+           if (recorder.mediaRecorder) {
+              recorder.mediaRecorder.stop();
+           }
+           recordBtnText.textContent = "Record";
+           startRecordingButton.classList.remove('animate-pulse');
         }
       });
     }
 
-    const saveImageButton = document.getElementById('save-image-button');
-    if (saveImageButton) {
-      saveImageButton.addEventListener('click', () => {
-        if (recorder) {
-          recorder.saveImage();
-        }
-      });
-    }
-
-    const imageOrientationToggle = document.getElementById('image-orientation-toggle');
-    if (imageOrientationToggle) {
-      imageOrientationToggle.addEventListener('change', (e) => {
-        if (recorder) {
-          recorder.isPortraitMode = e.target.checked;
-        }
-      });
-    }
-
-    if (transparentBgToggle) {
-      transparentBgToggle.addEventListener('change', (e) => {
-        if (recorder) {
-          recorder.isTransparentBackground = e.target.checked;
-        }
-      });
-    }
-
-    // --- Expand / Collapse UI Controls Content ---
-    const toggleButton = document.getElementById('toggle-controls');
-    const controlsContent = document.getElementById('controls-content');
-    const arrowIcon = document.getElementById('arrow-icon');
-
-    if (toggleButton && controlsContent && arrowIcon) {
-      toggleButton.addEventListener('click', () => {
-        controlsContent.classList.toggle('max-h-0');
-        controlsContent.classList.toggle('opacity-0');
-        controlsContent.classList.toggle('flex-1');
-        controlsContent.classList.toggle('opacity-100');
-        arrowIcon.classList.toggle('rotate-180');
-      });
+    // Update Recorder to reset UI when recording finishes automatically
+    if (recorder) {
+      // Overwrite the original onstop handling slightly to ensure our UI resets
+      const originalOnStop = recorder.mediaRecorder?.onstop;
+      recorder.onStopCallback = () => {
+          if (recordBtnText) recordBtnText.textContent = "Record";
+          if (startRecordingButton) startRecordingButton.classList.remove('animate-pulse');
+      };
     }
   }
 }

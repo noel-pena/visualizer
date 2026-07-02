@@ -28,22 +28,29 @@ export class EffectController {
     this.isRandomGlitchEnabled = document.getElementById('random-glitch-toggle')?.checked ?? false;
   }
 
-  update(now) {
+  update(now, audioData) {
     const postProcessor = this.app.postProcessor;
     const rendererManager = this.app.rendererManager;
     const meshManager = this.app.meshManager;
 
     if (!postProcessor || !rendererManager) return;
 
+    let audioSpeedMult = 1;
+    if (audioData) {
+       audioSpeedMult = 1 + audioData.high * 5;
+    }
+
     // 1. Auto Rotation
     if (this.isAutoRotate) {
-      this.rotationSpeed = (Math.sin(now * 0.0005) + 1.1) * 0.02;
+      this.rotationSpeed = (Math.sin(now * 0.0005) + 1.1) * 0.02 * audioSpeedMult;
     }
 
     // 2. Hue Shader animation
     if (postProcessor.huePass && postProcessor.huePass.enabled) {
       const time = now * 0.0002;
-      this.hueValue = Math.sin(time);
+      // Modulate hue based on audio mid frequencies if available
+      let hueOffset = audioData ? audioData.mid * Math.PI : 0;
+      this.hueValue = Math.sin(time) + hueOffset;
       if (postProcessor.huePass.uniforms['hue']) {
         postProcessor.huePass.uniforms['hue'].value = this.hueValue;
       }
@@ -51,14 +58,28 @@ export class EffectController {
 
     // 3. Film Shader time increment
     if (postProcessor.filmPass && postProcessor.filmPass.uniforms && postProcessor.filmPass.uniforms.time) {
-      postProcessor.filmPass.uniforms['time'].value += 0.05;
+      postProcessor.filmPass.uniforms['time'].value += 0.05 * audioSpeedMult;
     }
 
-    // 4. BPM Pulse Effects
+    // 4. Pulse / Audio-Reactive Glitch Effects
     if (this.isPulseEffectsEnabled && postProcessor.filmPass) {
-      const beatInterval = (60 / this.bpm) * 1000;
+      let shouldTrigger = false;
+      
+      if (audioData) {
+        // Trigger glitch on strong bass kicks
+        if (audioData.bass > 0.85) {
+            shouldTrigger = true;
+        }
+      } else {
+        // Fallback to static BPM if no audio data
+        const beatInterval = (60 / this.bpm) * 1000;
+        if (now - this.lastBeatTime >= beatInterval) {
+            shouldTrigger = true;
+            this.lastBeatTime = now;
+        }
+      }
 
-      // Check if pulse should end
+      // Turn off glitch
       if (postProcessor.glitchPass.enabled && (now - this.lastBeatTime > this.glitchDuration)) {
         postProcessor.glitchPass.enabled = false;
         if (postProcessor.rgbShiftPass?.uniforms?.amount) {
@@ -70,11 +91,11 @@ export class EffectController {
         }
       }
 
-      // Check if pulse should start
-      if (!postProcessor.glitchPass.enabled && (now - this.lastBeatTime >= beatInterval)) {
+      // Turn on glitch
+      if (shouldTrigger && !postProcessor.glitchPass.enabled && (now - this.lastBeatTime > 200)) { // 200ms debounce
         postProcessor.glitchPass.enabled = true;
         if (postProcessor.rgbShiftPass?.uniforms?.amount) {
-          postProcessor.rgbShiftPass.uniforms['amount'].value = 0.015;
+          postProcessor.rgbShiftPass.uniforms['amount'].value = 0.015 + (audioData ? audioData.bass * 0.05 : 0);
         }
         if (postProcessor.filmPass.uniforms?.nIntensity && postProcessor.filmPass.uniforms?.sIntensity) {
           postProcessor.filmPass.uniforms['nIntensity'].value = postProcessor.baseFilmNoise * 5;
@@ -84,7 +105,7 @@ export class EffectController {
       }
     }
 
-    // 5. Random Glitches
+    // 5. Random Glitches (Independent of audio)
     if (this.isRandomGlitchEnabled && !postProcessor.glitchPass.enabled && Math.random() < 0.015) {
       postProcessor.glitchPass.enabled = true;
       if (postProcessor.rgbShiftPass?.uniforms?.amount) {
@@ -94,6 +115,7 @@ export class EffectController {
       const randomDuration = 50 + Math.random() * 150;
       setTimeout(() => {
         const currentTime = Date.now();
+        // Only turn off if a pulse hasn't overridden it
         if (currentTime - this.lastBeatTime > this.glitchDuration) {
           postProcessor.glitchPass.enabled = false;
           if (postProcessor.rgbShiftPass?.uniforms?.amount) {

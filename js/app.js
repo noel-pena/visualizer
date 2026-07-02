@@ -4,6 +4,7 @@ import { MeshManager } from './modules/MeshManager.js';
 import { EffectController } from './modules/EffectController.js';
 import { Recorder } from './modules/Recorder.js';
 import { UIController } from './modules/UIController.js';
+import AudioManager from './modules/AudioManager.js';
 
 class GlitchVisualizer {
   constructor() {
@@ -12,6 +13,7 @@ class GlitchVisualizer {
     this.meshManager = new MeshManager(this);
     this.effectController = new EffectController(this);
     this.recorder = new Recorder(this);
+    this.audioManager = new AudioManager();
     this.uiController = new UIController(this);
   }
 

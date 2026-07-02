@@ -19,7 +19,7 @@ export class Recorder {
     this.isTransparentBackground = document.getElementById('transparent-bg-toggle')?.checked ?? false;
   }
 
-  startRecording() {
+  startRecording(audioStream = null) {
     if (this.isRecording) return;
 
     const renderer = this.app.rendererManager.renderer;
@@ -45,12 +45,26 @@ export class Recorder {
     this.compositeCtx = this.compositeCanvas.getContext('2d');
 
     // Capture at 60 FPS for smoother motion
-    const stream = this.compositeCanvas.captureStream(60);
+    const videoStream = this.compositeCanvas.captureStream(60);
+    let finalStream = videoStream;
+
+    // Multiplex audio and video streams if audio is provided
+    if (audioStream) {
+      const audioTracks = audioStream.getAudioTracks();
+      if (audioTracks.length > 0) {
+        finalStream = new MediaStream([
+          ...videoStream.getVideoTracks(),
+          ...audioTracks
+        ]);
+      }
+    }
 
     // Smart MIME Type Selection (Prefer MP4, fallback to High Quality WebM)
     const mimeTypes = [
       'video/mp4',             // Safari / Native MP4 support
-      'video/webm;codecs=vp9', // High quality Chrome/Firefox
+      'video/webm;codecs=vp9,opus', // High quality Chrome/Firefox with audio
+      'video/webm;codecs=vp9', 
+      'video/webm;codecs=vp8,opus',
       'video/webm;codecs=vp8',
       'video/webm'
     ];
@@ -70,14 +84,15 @@ export class Recorder {
 
     const options = {
       mimeType: supportedMimeType,
-      videoBitsPerSecond: 25000000 // 25 Mbps
+      videoBitsPerSecond: 25000000, // 25 Mbps high quality video
+      audioBitsPerSecond: 320000    // 320 kbps high quality audio
     };
 
     try {
-      this.mediaRecorder = new MediaRecorder(stream, options);
+      this.mediaRecorder = new MediaRecorder(finalStream, options);
     } catch (e) {
       console.error("Failed to create MediaRecorder with options:", e);
-      this.mediaRecorder = new MediaRecorder(stream);
+      this.mediaRecorder = new MediaRecorder(finalStream);
     }
 
     this.mediaRecorder.ondataavailable = (event) => {
@@ -103,12 +118,6 @@ export class Recorder {
     };
 
     this.mediaRecorder.start();
-
-    setTimeout(() => {
-      if (this.isRecording && this.mediaRecorder) {
-        this.mediaRecorder.stop();
-      }
-    }, duration);
   }
 
   renderCompositeFrame() {

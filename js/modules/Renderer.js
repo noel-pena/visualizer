@@ -56,44 +56,78 @@ export class Renderer {
     this.animate();
   }
 
-  onWindowResize() {
-    const container = document.getElementById('canvas-container');
-    let width, height;
-
-    const forcePortrait = document.getElementById('force-portrait-toggle')?.checked || false;
-
-    if (forcePortrait) {
-      // Calculate 9:16 dimensions based on available height
-      const availableHeight = container.clientHeight * 0.95; // 95% of screen
-      height = availableHeight;
-      width = height * (9 / 16);
+  setRenderConfig(qualityHeight, aspectRatioStr) {
+    this.qualityHeight = parseInt(qualityHeight) || 1080;
+    
+    // Parse aspect ratio string like "16:9"
+    const [ratioW, ratioH] = aspectRatioStr.split(':').map(Number);
+    this.targetAspectRatio = ratioW / ratioH;
+    
+    // Calculate actual render resolution
+    if (this.targetAspectRatio >= 1) {
+      // Landscape or square
+      this.renderHeight = this.qualityHeight;
+      this.renderWidth = Math.round(this.renderHeight * this.targetAspectRatio);
     } else {
-      // Full screen
-      width = window.innerWidth;
-      height = window.innerHeight;
+      // Portrait
+      // When we say 1080p portrait, do we mean 1080x1920 or 607x1080?
+      // Usually mobile 1080p is 1080x1920. So width is the "quality" in portrait?
+      // Let's ensure the long edge is at least the quality height, or explicitly set it.
+      // If quality is 1080, let's make the height 1920 and width 1080.
+      this.renderWidth = this.qualityHeight;
+      this.renderHeight = Math.round(this.renderWidth / this.targetAspectRatio);
     }
 
-    this.updateSizes(width, height);
+    this.onWindowResize(); // Re-calculate CSS sizes
   }
 
-  updateSizes(width, height) {
-    this.currentWidth = width;
-    this.currentHeight = height;
+  onWindowResize() {
+    const container = document.getElementById('canvas-container') || document.body;
+    
+    // Available space in the window
+    const availableWidth = window.innerWidth;
+    const availableHeight = window.innerHeight;
 
-    const pixelRatio = this.renderer.getPixelRatio();
-    const canvasWidth = Math.floor(width * pixelRatio);
-    const canvasHeight = Math.floor(height * pixelRatio);
+    // Use default if not set
+    if (!this.renderWidth || !this.renderHeight) {
+      this.renderWidth = availableWidth;
+      this.renderHeight = availableHeight;
+      this.targetAspectRatio = availableWidth / availableHeight;
+    }
 
-    this.camera.aspect = width / height;
+    // Calculate CSS sizes to fit within the screen while maintaining aspect ratio
+    let cssWidth = availableWidth;
+    let cssHeight = availableWidth / this.targetAspectRatio;
+
+    if (cssHeight > availableHeight) {
+      cssHeight = availableHeight;
+      cssWidth = cssHeight * this.targetAspectRatio;
+    }
+
+    this.updateSizes(this.renderWidth, this.renderHeight, cssWidth, cssHeight);
+  }
+
+  updateSizes(renderW, renderH, cssW, cssH) {
+    this.currentWidth = renderW;
+    this.currentHeight = renderH;
+
+    this.camera.aspect = renderW / renderH;
     this.camera.updateProjectionMatrix();
 
-    // IMPORTANT: Re-apply offset after resize/aspect change
     this.updateCameraOffset();
 
-    this.renderer.setSize(width, height);
+    // Set the internal render size (number of pixels)
+    // We set pixel ratio to 1 because we are manually defining the exact pixel count.
+    this.renderer.setPixelRatio(1); 
+    this.renderer.setSize(renderW, renderH, false); // false means don't update CSS style
+
+    // Set the CSS display size
+    const canvas = this.renderer.domElement;
+    canvas.style.width = `${cssW}px`;
+    canvas.style.height = `${cssH}px`;
     
     if (this.app.postProcessor) {
-      this.app.postProcessor.setSize(width, height, canvasWidth, canvasHeight);
+      this.app.postProcessor.setSize(renderW, renderH, renderW, renderH);
     }
   }
 
@@ -116,15 +150,26 @@ export class Renderer {
     requestAnimationFrame(() => this.animate());
 
     const now = Date.now();
+    let audioData = null;
+
+    if (this.app.audioManager && this.app.audioManager.isPlaying) {
+      this.app.audioManager.update();
+      audioData = {
+        bass: this.app.audioManager.getBassEnergy(),
+        mid: this.app.audioManager.getMidEnergy(),
+        high: this.app.audioManager.getHighEnergy(),
+        avg: this.app.audioManager.getAverageEnergy()
+      };
+    }
 
     // 1. Update effects (BPM pulse, auto camera, auto rotation)
     if (this.app.effectController) {
-      this.app.effectController.update(now);
+      this.app.effectController.update(now, audioData);
     }
 
     // 2. Update mesh rotations
     if (this.app.meshManager) {
-      this.app.meshManager.update(this.app.effectController?.rotationSpeed || 0.005);
+      this.app.meshManager.update(this.app.effectController?.rotationSpeed || 0.005, audioData);
     }
 
     // 3. Render post-processing passes
