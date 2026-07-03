@@ -4,6 +4,7 @@ import { MeshManager } from './modules/MeshManager.js';
 import { EffectController } from './modules/EffectController.js';
 import { Recorder } from './modules/Recorder.js';
 import { UIController } from './modules/UIController.js';
+import { PresetManager } from './modules/PresetManager.js';
 import AudioManager from './modules/AudioManager.js';
 
 class GlitchVisualizer {
@@ -15,6 +16,7 @@ class GlitchVisualizer {
     this.recorder = new Recorder(this);
     this.audioManager = new AudioManager();
     this.uiController = new UIController(this);
+    this.presetManager = new PresetManager(this);
   }
 
   init() {
@@ -25,6 +27,7 @@ class GlitchVisualizer {
     this.effectController.init();
     this.recorder.init();
     this.uiController.init();
+    this.presetManager.init(); // after UIController so applied presets hit live listeners
 
     // Set initial size
     this.rendererManager.onWindowResize();
