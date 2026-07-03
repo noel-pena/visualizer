@@ -74,14 +74,28 @@ export class UIController {
     const autoRotateToggle = document.getElementById('auto-rotate-toggle');
     if (autoRotateToggle) {
       autoRotateToggle.addEventListener('change', (e) => {
-        if (effectController) effectController.isAutoRotate = e.target.checked;
+        if (effectController) {
+          effectController.isAutoRotate = e.target.checked;
+          // Snap back to the slider's base speed when auto-rotate turns off
+          if (!e.target.checked) effectController.rotationSpeed = effectController.baseRotationSpeed;
+        }
       });
     }
 
     const rotationSlider = document.getElementById('rotation-slider');
     if (rotationSlider) {
       rotationSlider.addEventListener('input', (e) => {
-        if (effectController) effectController.rotationSpeed = parseFloat(e.target.value);
+        if (effectController) {
+          effectController.baseRotationSpeed = parseFloat(e.target.value);
+          effectController.rotationSpeed = effectController.baseRotationSpeed;
+        }
+      });
+    }
+
+    const autoCameraToggle = document.getElementById('auto-camera-toggle');
+    if (autoCameraToggle) {
+      autoCameraToggle.addEventListener('change', (e) => {
+        if (effectController) effectController.isAutoCamera = e.target.checked;
       });
     }
 
@@ -93,11 +107,52 @@ export class UIController {
     }
 
     // --- Geometry ---
+    // Show only the detail sliders relevant to the selected shape
+    const updateGeometryControls = (shape) => {
+      const show = (id, visible) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = visible ? 'block' : 'none';
+      };
+      show('detail-control', shape === 'Sphere');
+      show('box-segments-control', shape === 'Box');
+      show('torus-controls', shape === 'Torus' || shape === 'TorusKnot');
+      show('cone-segments-control', shape === 'Cone' || shape === 'Cylinder');
+    };
+
     const shapeSelect = document.getElementById('shape-select');
     if (shapeSelect) {
+      updateGeometryControls(shapeSelect.value);
       shapeSelect.addEventListener('change', (e) => {
         if (meshManager) {
           meshManager.currentShape = e.target.value;
+          meshManager.updateMeshInstances();
+        }
+        updateGeometryControls(e.target.value);
+      });
+    }
+
+    // Detail / segment sliders — each sets its MeshManager property and rebuilds
+    const wireGeometrySlider = (id, prop) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('input', (e) => {
+        if (meshManager) {
+          meshManager[prop] = parseInt(e.target.value);
+          meshManager.updateMeshInstances();
+        }
+      });
+    };
+    wireGeometrySlider('detail-slider', 'sphereDetail');
+    wireGeometrySlider('box-segments-slider', 'boxSegments');
+    wireGeometrySlider('torus-radial-slider', 'torusRadialSeg');
+    wireGeometrySlider('torus-tubular-slider', 'torusTubularSeg');
+    wireGeometrySlider('cone-segments-slider', 'coneRadialSeg');
+
+    const smoothSurfaceToggle = document.getElementById('smooth-surface-toggle');
+    if (smoothSurfaceToggle) {
+      smoothSurfaceToggle.addEventListener('change', (e) => {
+        if (meshManager) {
+          meshManager.isSmoothSurface = e.target.checked;
           meshManager.updateMeshInstances();
         }
       });
@@ -192,6 +247,34 @@ export class UIController {
       afterimageToggle.addEventListener('change', (e) => {
         if (postProcessor && postProcessor.afterimagePass) {
           postProcessor.afterimagePass.enabled = e.target.checked;
+        }
+      });
+    }
+
+    const afterimageDampSlider = document.getElementById('afterimage-damp-slider');
+    if (afterimageDampSlider) {
+      afterimageDampSlider.addEventListener('input', (e) => {
+        if (postProcessor?.afterimagePass?.uniforms?.damp) {
+          postProcessor.afterimagePass.uniforms['damp'].value = parseFloat(e.target.value);
+        }
+      });
+    }
+
+    const filmNoiseSlider = document.getElementById('film-noise-slider');
+    if (filmNoiseSlider) {
+      filmNoiseSlider.addEventListener('input', (e) => {
+        if (postProcessor && postProcessor.filmPass) {
+          postProcessor.baseFilmIntensity = parseFloat(e.target.value);
+          postProcessor.filmPass.uniforms['intensity'].value = postProcessor.baseFilmIntensity;
+        }
+      });
+    }
+
+    const dotScreenToggle = document.getElementById('dot-screen-toggle');
+    if (dotScreenToggle) {
+      dotScreenToggle.addEventListener('change', (e) => {
+        if (postProcessor && postProcessor.dotScreenPass) {
+          postProcessor.dotScreenPass.enabled = e.target.checked;
         }
       });
     }
@@ -336,6 +419,12 @@ export class UIController {
            recorder.stopRecording();
         }
       });
+    }
+
+    // --- Snapshot (PNG still export) ---
+    const saveImageButton = document.getElementById('save-image-button');
+    if (saveImageButton && recorder) {
+      saveImageButton.addEventListener('click', () => recorder.saveImage());
     }
   }
 }

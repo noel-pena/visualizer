@@ -124,7 +124,16 @@
             <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
           </div>
         </label>
-        
+
+        <label class="flex items-center justify-between mb-3 cursor-pointer">
+          <span class="text-sm">Auto-Camera (Orbit)</span>
+          <div class="relative">
+            <input type="checkbox" id="auto-camera-toggle" class="sr-only peer">
+            <div class="w-11 h-6 bg-white/10 rounded-full peer-checked:bg-purple-500 transition-colors"></div>
+            <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+          </div>
+        </label>
+
         <div class="mb-3">
           <label class="flex justify-between text-xs text-slate-400 mb-1">
             <span>Rotation Speed</span>
@@ -166,6 +175,47 @@
             <option value="Monochrome">Wireframe</option>
             <option value="Lit">Solid</option>
           </select>
+        </div>
+
+        <label class="flex items-center justify-between mb-3 cursor-pointer">
+          <span class="text-sm">Smooth Surface (Fill)</span>
+          <div class="relative">
+            <input type="checkbox" id="smooth-surface-toggle" class="sr-only peer">
+            <div class="w-11 h-6 bg-white/10 rounded-full peer-checked:bg-purple-500 transition-colors"></div>
+            <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+          </div>
+        </label>
+
+        <div class="mb-3" id="detail-control">
+          <label class="flex justify-between text-xs text-slate-400 mb-1">
+            <span>Detail</span>
+          </label>
+          <input type="range" id="detail-slider" min="0" max="5" step="1" value="3">
+        </div>
+
+        <div class="mb-3" id="box-segments-control" style="display:none">
+          <label class="flex justify-between text-xs text-slate-400 mb-1">
+            <span>Segments</span>
+          </label>
+          <input type="range" id="box-segments-slider" min="1" max="10" step="1" value="1">
+        </div>
+
+        <div class="mb-3" id="torus-controls" style="display:none">
+          <label class="flex justify-between text-xs text-slate-400 mb-1">
+            <span>Radial Segments</span>
+          </label>
+          <input type="range" id="torus-radial-slider" min="3" max="32" step="1" value="16">
+          <label class="flex justify-between text-xs text-slate-400 mb-1 mt-2">
+            <span>Tubular Segments</span>
+          </label>
+          <input type="range" id="torus-tubular-slider" min="8" max="200" step="1" value="100">
+        </div>
+
+        <div class="mb-3" id="cone-segments-control" style="display:none">
+          <label class="flex justify-between text-xs text-slate-400 mb-1">
+            <span>Radial Segments</span>
+          </label>
+          <input type="range" id="cone-segments-slider" min="3" max="64" step="1" value="32">
         </div>
 
         <div class="mb-3">
@@ -244,6 +294,29 @@
           </div>
         </label>
 
+        <div class="mb-3">
+          <label class="flex justify-between text-xs text-slate-400 mb-1">
+            <span>Trail Length</span>
+          </label>
+          <input type="range" id="afterimage-damp-slider" min="0.5" max="0.98" step="0.01" value="0.9">
+        </div>
+
+        <div class="mb-3">
+          <label class="flex justify-between text-xs text-slate-400 mb-1">
+            <span>Film Grain</span>
+          </label>
+          <input type="range" id="film-noise-slider" min="0" max="1" step="0.05" value="0.2">
+        </div>
+
+        <label class="flex items-center justify-between mb-3 cursor-pointer">
+          <span class="text-sm text-rose-400 font-medium">Dot Screen (Newsprint)</span>
+          <div class="relative">
+            <input type="checkbox" id="dot-screen-toggle" class="sr-only peer">
+            <div class="w-11 h-6 bg-white/10 rounded-full peer-checked:bg-rose-500 transition-colors"></div>
+            <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+          </div>
+        </label>
+
         <label class="flex items-center justify-between mb-3 cursor-pointer">
           <span class="text-sm text-yellow-300 font-medium">Kaleidoscope Lens</span>
           <div class="relative">
@@ -317,6 +390,10 @@
         </select>
       </div>
       
+      <button id="save-image-button" title="Save PNG snapshot" class="ml-1 bg-white/10 hover:bg-white/20 border border-white/5 px-3 py-2 rounded-lg transition-colors shrink-0">
+        <svg class="w-4 h-4 text-purple-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+      </button>
+
       <button id="start-recording-button" class="ml-1 md:ml-2 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 px-4 md:px-5 py-2 rounded-lg font-semibold text-sm shadow-lg shadow-pink-500/20 transition-all flex items-center justify-center gap-2 shrink-0 w-24 md:w-auto">
         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
         <span id="record-btn-text">Record</span>

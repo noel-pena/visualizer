@@ -10,6 +10,7 @@ export class EffectController {
 
     // Rotation & Camera State
     this.isAutoRotate = true;
+    this.baseRotationSpeed = 0.005; // Set by the rotation slider
     this.rotationSpeed = 0.005;
     this.isAutoCamera = false;
     this.isRandomGlitchEnabled = false;
@@ -21,7 +22,8 @@ export class EffectController {
   init() {
     this.isAutoRotate = document.getElementById('auto-rotate-toggle')?.checked ?? true;
     const rotationSlider = document.getElementById('rotation-slider');
-    this.rotationSpeed = rotationSlider ? parseFloat(rotationSlider.value) : 0.005;
+    this.baseRotationSpeed = rotationSlider ? parseFloat(rotationSlider.value) : 0.005;
+    this.rotationSpeed = this.baseRotationSpeed;
     this.isAutoCamera = document.getElementById('auto-camera-toggle')?.checked ?? false;
     this.bpm = parseFloat(document.getElementById('bpm-slider')?.value || '120');
     this.isPulseEffectsEnabled = document.getElementById('pulse-effects-toggle')?.checked ?? true;
@@ -40,9 +42,9 @@ export class EffectController {
        audioSpeedMult = 1 + audioData.high * 5;
     }
 
-    // 1. Auto Rotation
+    // 1. Auto Rotation — modulate the slider's base speed instead of overriding it
     if (this.isAutoRotate) {
-      this.rotationSpeed = (Math.sin(now * 0.0005) + 1.1) * 0.02 * audioSpeedMult;
+      this.rotationSpeed = this.baseRotationSpeed * (Math.sin(now * 0.0005) + 1.1) * 4 * audioSpeedMult;
     }
 
     // 2. Hue Shader animation

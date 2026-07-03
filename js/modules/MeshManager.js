@@ -144,18 +144,22 @@ export class MeshManager {
     }
 
     let material;
-    const wireframe = !this.isSmoothSurface;
+    const flatShading = !this.isSmoothSurface;
 
     switch (this.materialMode) {
       case 'Monochrome':
-        material = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe });
+        // "Wireframe" — always lines
+        material = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true });
         break;
       case 'Lit':
-        material = new THREE.MeshPhongMaterial({ color: 0xffffff, wireframe, flatShading: this.isSmoothSurface });
+        // "Solid" — always a filled, lit surface
+        material = new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading });
         break;
       case 'Hue':
       default:
-        material = new THREE.MeshNormalMaterial({ wireframe, flatShading: this.isSmoothSurface });
+        // "Holographic" — classic rainbow wireframe; Smooth Surface toggle fills it.
+        // flatShading must stay off: derivative-based flat normals turn wireframe lines black (NaN).
+        material = new THREE.MeshNormalMaterial({ wireframe: !this.isSmoothSurface, flatShading: false });
         break;
     }
 
