@@ -37,4 +37,5 @@ class GlitchVisualizer {
 document.addEventListener('DOMContentLoaded', () => {
   const app = new GlitchVisualizer();
   app.init();
+  window.visualizerApp = app; // console/debug access
 });

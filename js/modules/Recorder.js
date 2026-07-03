@@ -12,31 +12,20 @@ export class Recorder {
 
     this.compositeCanvas = null;
     this.compositeCtx = null;
+
+    // UI hooks — set by UIController so the recorder never touches the DOM
+    this.onStopCallback = null;
   }
 
-  init() {
-    this.isPortraitMode = document.getElementById('image-orientation-toggle')?.checked ?? false;
-    this.isTransparentBackground = document.getElementById('transparent-bg-toggle')?.checked ?? false;
-  }
+  init() {}
 
   startRecording(audioStream = null) {
     if (this.isRecording) return;
 
     const renderer = this.app.rendererManager.renderer;
-    const recordingDurationInput = document.getElementById('recording-duration');
-    const startRecordingButton = document.getElementById('start-recording-button');
-    const recordingStatus = document.getElementById('recording-status');
 
     this.isRecording = true;
     this.recordedChunks = [];
-
-    if (recordingStatus) recordingStatus.classList.remove('hidden');
-    if (startRecordingButton) {
-      startRecordingButton.disabled = true;
-      startRecordingButton.textContent = "Recording...";
-    }
-
-    const duration = parseInt(recordingDurationInput?.value || '10') * 1000;
 
     // --- Setup Composite Recording (BG Image + WebGL) ---
     this.compositeCanvas = document.createElement('canvas');
@@ -74,11 +63,7 @@ export class Recorder {
     if (!supportedMimeType) {
       console.error("No supported MIME type for MediaRecorder");
       this.isRecording = false;
-      if (recordingStatus) recordingStatus.classList.add('hidden');
-      if (startRecordingButton) {
-        startRecordingButton.disabled = false;
-        startRecordingButton.textContent = "Start Recording";
-      }
+      if (this.onStopCallback) this.onStopCallback();
       return;
     }
 
@@ -107,17 +92,20 @@ export class Recorder {
 
       this.downloadRecording(extension);
       this.isRecording = false;
-      if (recordingStatus) recordingStatus.classList.add('hidden');
-      if (startRecordingButton) {
-        startRecordingButton.disabled = false;
-        startRecordingButton.textContent = "Start Recording";
-      }
 
       this.compositeCanvas = null;
       this.compositeCtx = null;
+
+      if (this.onStopCallback) this.onStopCallback();
     };
 
     this.mediaRecorder.start();
+  }
+
+  stopRecording() {
+    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+      this.mediaRecorder.stop();
+    }
   }
 
   renderCompositeFrame() {

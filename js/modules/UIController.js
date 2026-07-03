@@ -273,13 +273,9 @@ export class UIController {
         if (timelineProgress) timelineProgress.style.width = '0%';
         timeDisplay.textContent = '0:00';
 
-        // Auto-stop recording if the song finishes
-        if (recorder && recorder.isRecording && recorder.mediaRecorder) {
-          recorder.mediaRecorder.stop();
-          const startRecordingButton = document.getElementById('start-recording-button');
-          const recordBtnText = document.getElementById('record-btn-text');
-          if (recordBtnText) recordBtnText.textContent = "Record";
-          if (startRecordingButton) startRecordingButton.classList.remove('animate-pulse');
+        // Auto-stop recording if the song finishes (UI reset happens in onStopCallback)
+        if (recorder && recorder.isRecording) {
+          recorder.stopRecording();
         }
       };
     }
@@ -315,36 +311,31 @@ export class UIController {
     const recordBtnText = document.getElementById('record-btn-text');
 
     if (startRecordingButton && recorder) {
+      // Single source of truth for resetting the record button — runs on every
+      // stop path (manual click, song end, unsupported codec).
+      recorder.onStopCallback = () => {
+        if (recordBtnText) recordBtnText.textContent = "Record";
+        startRecordingButton.classList.remove('animate-pulse');
+      };
+
       startRecordingButton.addEventListener('click', () => {
         if (!recorder.isRecording) {
            // Start Audio if not playing
            if (audioManager && audioManager.isLoaded && !audioManager.isPlaying) {
                audioManager.play();
            }
-           
+
            // Start recording and pass the audio stream
            recorder.startRecording(audioManager ? audioManager.getStream() : null);
-           
-           recordBtnText.textContent = "Stop";
-           startRecordingButton.classList.add('animate-pulse');
-        } else {
-           if (recorder.mediaRecorder) {
-              recorder.mediaRecorder.stop();
+
+           if (recorder.isRecording) {
+             if (recordBtnText) recordBtnText.textContent = "Stop";
+             startRecordingButton.classList.add('animate-pulse');
            }
-           recordBtnText.textContent = "Record";
-           startRecordingButton.classList.remove('animate-pulse');
+        } else {
+           recorder.stopRecording();
         }
       });
-    }
-
-    // Update Recorder to reset UI when recording finishes automatically
-    if (recorder) {
-      // Overwrite the original onstop handling slightly to ensure our UI resets
-      const originalOnStop = recorder.mediaRecorder?.onstop;
-      recorder.onStopCallback = () => {
-          if (recordBtnText) recordBtnText.textContent = "Record";
-          if (startRecordingButton) startRecordingButton.classList.remove('animate-pulse');
-      };
     }
   }
 }

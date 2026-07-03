@@ -13,6 +13,8 @@ export class Renderer {
     this.offsetY = 0;
     this.currentWidth = window.innerWidth;
     this.currentHeight = window.innerHeight;
+
+    this.hiddenRenderTimer = null;
   }
 
   init() {
@@ -56,6 +58,21 @@ export class Renderer {
 
   start() {
     this.animate();
+
+    // Browsers pause requestAnimationFrame entirely while the tab/window is
+    // hidden or covered, which froze recordings (video stops, audio continues).
+    // While hidden, drive frames with a timer instead — tabs playing audio are
+    // exempt from timer throttling, so recordings keep their frame rate.
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        if (!this.hiddenRenderTimer) {
+          this.hiddenRenderTimer = setInterval(() => this.renderFrame(), 1000 / 30);
+        }
+      } else if (this.hiddenRenderTimer) {
+        clearInterval(this.hiddenRenderTimer);
+        this.hiddenRenderTimer = null;
+      }
+    });
   }
 
   setRenderConfig(qualityHeight, aspectRatioStr) {
@@ -150,7 +167,11 @@ export class Renderer {
 
   animate() {
     requestAnimationFrame(() => this.animate());
+    if (document.hidden) return; // hiddenRenderTimer drives frames while hidden
+    this.renderFrame();
+  }
 
+  renderFrame() {
     const now = Date.now();
     let audioData = null;
 
