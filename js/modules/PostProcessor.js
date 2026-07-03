@@ -12,6 +12,7 @@ import { KaleidoShader } from 'three/examples/jsm/shaders/KaleidoShader.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { SobelOperatorShader } from 'three/examples/jsm/shaders/SobelOperatorShader.js';
 import { HalftonePass } from 'three/examples/jsm/postprocessing/HalftonePass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import * as THREE from 'three';
 
 const RetroPixelShader = {
@@ -65,10 +66,10 @@ export class PostProcessor {
     this.bloomPass = null;
     this.sobelPass = null;
     this.halftonePass = null;
+    this.outputPass = null;
     this.smaaPass = null;
 
-    this.baseFilmNoise = 0.2;
-    this.baseFilmScanlines = 0.1;
+    this.baseFilmIntensity = 0.2;
   }
 
   init() {
@@ -92,7 +93,8 @@ export class PostProcessor {
     this.composer.addPass(this.afterimagePass);
 
     // Unreal Bloom Pass (Makes bright things glow)
-    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+    // Strength tuned for the sRGB output pipeline — higher values blow out to white
+    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.55, 0.4, 0.85);
     const bloomToggle = document.getElementById('bloom-toggle');
     this.bloomPass.enabled = bloomToggle ? bloomToggle.checked : true;
     this.composer.addPass(this.bloomPass);
@@ -150,18 +152,16 @@ export class PostProcessor {
     this.composer.addPass(this.dotScreenPass);
 
     // Film Pass (Should be near the end so grain is crisp)
+    // three r157+ FilmPass API: (intensity, grayscale)
     const filmNoiseSlider = document.getElementById('film-noise-slider');
-    const filmScanlineSlider = document.getElementById('film-scanline-slider');
-    this.baseFilmNoise = filmNoiseSlider ? parseFloat(filmNoiseSlider.value) : 0.2;
-    this.baseFilmScanlines = filmScanlineSlider ? parseFloat(filmScanlineSlider.value) : 0.1;
+    this.baseFilmIntensity = filmNoiseSlider ? parseFloat(filmNoiseSlider.value) : 0.2;
 
-    this.filmPass = new FilmPass(
-      this.baseFilmNoise,
-      this.baseFilmScanlines,
-      648,
-      false
-    );
+    this.filmPass = new FilmPass(this.baseFilmIntensity, false);
     this.composer.addPass(this.filmPass);
+
+    // Output Pass (linear -> sRGB conversion; without it colors render too dark)
+    this.outputPass = new OutputPass();
+    this.composer.addPass(this.outputPass);
 
     // SMAA PASS (MUST BE LAST)
     const pixelRatio = renderer.getPixelRatio();

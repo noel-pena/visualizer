@@ -42,10 +42,12 @@ export class Renderer {
   }
 
   initLights() {
-    this.ambientLight = new THREE.AmbientLight(0x404040);
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.35);
     this.scene.add(this.ambientLight);
 
-    this.pointLight = new THREE.PointLight(0xffffff, 1, 100);
+    // three r155+ uses physical light units: intensity needs to be much higher
+    // to overcome distance falloff (decay = 2)
+    this.pointLight = new THREE.PointLight(0xffffff, 120, 100);
     this.pointLight.position.set(5, 5, 5);
     this.scene.add(this.pointLight);
 

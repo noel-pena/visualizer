@@ -56,10 +56,7 @@ export class EffectController {
       }
     }
 
-    // 3. Film Shader time increment
-    if (postProcessor.filmPass && postProcessor.filmPass.uniforms && postProcessor.filmPass.uniforms.time) {
-      postProcessor.filmPass.uniforms['time'].value += 0.05 * audioSpeedMult;
-    }
+    // (FilmPass advances its own time uniform each render; no manual increment needed)
 
     // 4. Pulse / Audio-Reactive Glitch Effects
     if (this.isPulseEffectsEnabled && postProcessor.filmPass) {
@@ -85,9 +82,8 @@ export class EffectController {
         if (postProcessor.rgbShiftPass?.uniforms?.amount) {
           postProcessor.rgbShiftPass.uniforms['amount'].value = 0.0;
         }
-        if (postProcessor.filmPass.uniforms?.nIntensity && postProcessor.filmPass.uniforms?.sIntensity) {
-          postProcessor.filmPass.uniforms['nIntensity'].value = postProcessor.baseFilmNoise;
-          postProcessor.filmPass.uniforms['sIntensity'].value = postProcessor.baseFilmScanlines;
+        if (postProcessor.filmPass.uniforms?.intensity) {
+          postProcessor.filmPass.uniforms['intensity'].value = postProcessor.baseFilmIntensity;
         }
       }
 
@@ -97,9 +93,8 @@ export class EffectController {
         if (postProcessor.rgbShiftPass?.uniforms?.amount) {
           postProcessor.rgbShiftPass.uniforms['amount'].value = 0.015 + (audioData ? audioData.bass * 0.05 : 0);
         }
-        if (postProcessor.filmPass.uniforms?.nIntensity && postProcessor.filmPass.uniforms?.sIntensity) {
-          postProcessor.filmPass.uniforms['nIntensity'].value = postProcessor.baseFilmNoise * 5;
-          postProcessor.filmPass.uniforms['sIntensity'].value = postProcessor.baseFilmScanlines * 5;
+        if (postProcessor.filmPass.uniforms?.intensity) {
+          postProcessor.filmPass.uniforms['intensity'].value = Math.min(1.0, postProcessor.baseFilmIntensity * 5);
         }
         this.lastBeatTime = now;
       }
