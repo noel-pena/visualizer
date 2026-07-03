@@ -108,6 +108,21 @@ export class Recorder {
     }
   }
 
+  // Fills ctx with the palette background as a radial gradient (matches the
+  // on-screen CSS backdrop), falling back to black without a palette.
+  fillBackground(ctx, width, height) {
+    const palette = this.app.colorPalette;
+    if (palette) {
+      const g = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) / 1.5);
+      g.addColorStop(0, palette.lighterBackgroundHex());
+      g.addColorStop(1, palette.background);
+      ctx.fillStyle = g;
+    } else {
+      ctx.fillStyle = '#000';
+    }
+    ctx.fillRect(0, 0, width, height);
+  }
+
   renderCompositeFrame() {
     const renderer = this.app.rendererManager.renderer;
     if (!this.compositeCtx || !renderer || !renderer.domElement) return;
@@ -140,8 +155,7 @@ export class Recorder {
     } else {
       this.compositeCtx.clearRect(0, 0, width, height);
       if (!this.isTransparentBackground) {
-        this.compositeCtx.fillStyle = '#000';
-        this.compositeCtx.fillRect(0, 0, width, height);
+        this.fillBackground(this.compositeCtx, width, height);
       }
     }
 
@@ -209,6 +223,8 @@ export class Recorder {
         }
 
         ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+      } else if (!this.isTransparentBackground) {
+        this.fillBackground(ctx, tempCanvas.width, tempCanvas.height);
       }
 
       // 2. Draw WebGL Content

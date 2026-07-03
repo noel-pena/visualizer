@@ -3,7 +3,7 @@ const STORAGE_KEY = 'visualizer-presets-v1';
 // Every preset-managed control, grouped by how it's read/applied.
 // Apply order matters: scene mode first so geometry controls land on the right scene.
 const SELECTS = [
-  'scene-mode-select', 'shape-select', 'material-select', 'layout-select',
+  'scene-mode-select', 'shape-select', 'material-select', 'layout-select', 'color-mode-select',
   'route-scale-band', 'route-rotation-band', 'route-hue-band',
   'route-glitch-band', 'route-bloom-band', 'route-kaleido-band',
 ];
@@ -19,6 +19,8 @@ const RANGES = [
   'shape-count-slider', 'afterimage-damp-slider', 'film-noise-slider',
   'route-scale-amount', 'route-rotation-amount', 'route-hue-amount',
   'route-glitch-amount', 'route-bloom-amount', 'route-kaleido-amount',
+  // color inputs behave like ranges: value + 'input' event
+  'primary-color-input', 'secondary-color-input', 'background-color-input',
 ];
 
 const DEFAULTS = {
@@ -34,22 +36,34 @@ const DEFAULTS = {
   'route-glitch-band': 'bass', 'route-bloom-band': 'off', 'route-kaleido-band': 'off',
   'route-scale-amount': 1, 'route-rotation-amount': 1, 'route-hue-amount': 1,
   'route-glitch-amount': 1, 'route-bloom-amount': 1, 'route-kaleido-amount': 1,
+  'color-mode-select': 'spectrum',
+  'primary-color-input': '#ffffff', 'secondary-color-input': '#c084fc', 'background-color-input': '#0f172a',
 };
 
 const FACTORY_PRESETS = {
   'Classic Holo': { ...DEFAULTS },
   'Pastel Orb': { ...DEFAULTS, 'smooth-surface-toggle': true, 'afterimage-toggle': false, 'film-noise-slider': 0.1, 'detail-slider': 4 },
-  'Neon Knot': { ...DEFAULTS, 'shape-select': 'TorusKnot', 'material-select': 'Monochrome', 'rotation-slider': 0.012, 'torus-tubular-slider': 150, 'afterimage-damp-slider': 0.94 },
+  'Neon Knot': { ...DEFAULTS, 'shape-select': 'TorusKnot', 'material-select': 'Monochrome', 'rotation-slider': 0.012, 'torus-tubular-slider': 150, 'afterimage-damp-slider': 0.94, 'primary-color-input': '#00ffd0', 'background-color-input': '#03120f' },
   'Gyroscope': { ...DEFAULTS, 'shape-select': 'Torus', 'shape-count-slider': 6, 'rotation-slider': 0.01, 'torus-radial-slider': 8, 'torus-tubular-slider': 60 },
   'Kaleido Dream': { ...DEFAULTS, 'kaleidoscope-toggle': true, 'smooth-surface-toggle': true, 'shape-count-slider': 4, 'auto-camera-toggle': true, 'route-kaleido-band': 'mid' },
-  'Synthwave Drive': { ...DEFAULTS, 'scene-mode-select': 'Synthwave', 'film-noise-slider': 0.35, 'rotation-slider': 0.008 },
-  'Galaxy Dust': { ...DEFAULTS, 'scene-mode-select': 'Particles', 'afterimage-damp-slider': 0.95, 'rotation-slider': 0.015, 'route-bloom-band': 'bass' },
+  'Synthwave Drive': { ...DEFAULTS, 'scene-mode-select': 'Synthwave', 'film-noise-slider': 0.35, 'rotation-slider': 0.008, 'color-mode-select': 'palette', 'primary-color-input': '#ff2d95', 'secondary-color-input': '#00e5ff', 'background-color-input': '#12032e' },
+  'Galaxy Dust': { ...DEFAULTS, 'scene-mode-select': 'Particles', 'afterimage-damp-slider': 0.95, 'rotation-slider': 0.015, 'route-bloom-band': 'bass', 'color-mode-select': 'palette', 'primary-color-input': '#7dd3fc', 'secondary-color-input': '#f0abfc', 'background-color-input': '#020617' },
   'Retro Terminal': { ...DEFAULTS, 'ascii-toggle': true, 'shape-select': 'Box', 'material-select': 'Monochrome', 'random-glitch-toggle': true },
   'Newsprint Ring': { ...DEFAULTS, 'dot-screen-toggle': true, 'material-select': 'Lit', 'smooth-surface-toggle': true, 'shape-select': 'Dodecahedron', 'shape-count-slider': 8, 'layout-select': 'Radial', 'auto-camera-toggle': true },
 };
 
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const rand = (min, max) => min + Math.random() * (max - min);
+
+const hslToHex = (h, s, l) => {
+  const f = (n) => {
+    const k = (n + h * 12) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const c = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(c * 255).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+};
 
 export class PresetManager {
   constructor(app) {
@@ -248,6 +262,21 @@ export class PresetManager {
     const roll = Math.random();
     if (roll > 0.5) state[pick(stylizers)] = true;
     if (roll > 0.9) state[pick(stylizers)] = true;
+
+    // Colors — half the time pick a harmonious random palette
+    if (Math.random() < 0.5) {
+      const h = Math.random();
+      const spread = pick([0.08, 0.33, 0.5]); // analogous, triadic, complementary
+      state['color-mode-select'] = 'palette';
+      state['primary-color-input'] = hslToHex(h, 0.85, 0.62);
+      state['secondary-color-input'] = hslToHex((h + spread) % 1, 0.85, 0.62);
+      state['background-color-input'] = hslToHex((h + 0.5) % 1, 0.45, 0.06);
+    } else {
+      state['color-mode-select'] = 'spectrum';
+      state['primary-color-input'] = pick(['#ffffff', '#ffffff', hslToHex(Math.random(), 0.9, 0.7)]);
+      state['secondary-color-input'] = DEFAULTS['secondary-color-input'];
+      state['background-color-input'] = pick([DEFAULTS['background-color-input'], '#000000', hslToHex(Math.random(), 0.4, 0.05)]);
+    }
 
     // Audio routing — bias toward the classic mapping, occasionally rewire
     state['route-scale-band'] = pick(['bass', 'bass', 'bass', 'mid', 'avg']);

@@ -163,6 +163,32 @@
         </div>
       </section>
 
+      <!-- Colors -->
+      <section class="pt-4 border-t border-white/10">
+        <h2 class="text-sm font-semibold text-purple-300 uppercase tracking-wider mb-3">Colors</h2>
+
+        <div class="mb-3">
+          <select id="color-mode-select" class="w-full bg-black/30 border border-white/10 rounded-lg py-1.5 px-3 text-sm focus:outline-none focus:border-purple-500">
+            <option value="spectrum">Spectrum Cycle (Rainbow)</option>
+            <option value="palette">Custom Palette</option>
+          </select>
+        </div>
+
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs text-slate-400">Primary (shapes)</span>
+          <input type="color" id="primary-color-input" value="#ffffff" class="w-12 h-7 bg-transparent border border-white/10 rounded cursor-pointer">
+        </div>
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs text-slate-400">Secondary (blend)</span>
+          <input type="color" id="secondary-color-input" value="#c084fc" class="w-12 h-7 bg-transparent border border-white/10 rounded cursor-pointer">
+        </div>
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-xs text-slate-400">Background</span>
+          <input type="color" id="background-color-input" value="#0f172a" class="w-12 h-7 bg-transparent border border-white/10 rounded cursor-pointer">
+        </div>
+        <p class="text-[11px] text-slate-500 mt-2">Primary tints Wireframe/Solid shapes. Palette mode blends Primary ↔ Secondary for terrain & particles instead of the rainbow.</p>
+      </section>
+
       <!-- Transform & Rotation -->
       <section class="pt-4 border-t border-white/10">
         <h2 class="text-sm font-semibold text-purple-300 uppercase tracking-wider mb-3">Motion</h2>

@@ -6,6 +6,7 @@ import { Recorder } from './modules/Recorder.js';
 import { UIController } from './modules/UIController.js';
 import { PresetManager } from './modules/PresetManager.js';
 import { AudioRouting } from './modules/AudioRouting.js';
+import { ColorPalette } from './modules/ColorPalette.js';
 import AudioManager from './modules/AudioManager.js';
 
 class GlitchVisualizer {
@@ -17,6 +18,7 @@ class GlitchVisualizer {
     this.recorder = new Recorder(this);
     this.audioManager = new AudioManager();
     this.audioRouting = new AudioRouting(this);
+    this.colorPalette = new ColorPalette(this);
     this.uiController = new UIController(this);
     this.presetManager = new PresetManager(this);
   }
@@ -25,6 +27,7 @@ class GlitchVisualizer {
     // Initialize components in logical order: renderer first, then others that depend on it
     this.rendererManager.init();
     this.postProcessor.init();
+    this.colorPalette.init(); // before meshManager so initial materials get the palette
     this.meshManager.init();
     this.effectController.init();
     this.recorder.init();

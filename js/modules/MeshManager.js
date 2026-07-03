@@ -112,6 +112,16 @@ export class MeshManager {
     }
   }
 
+  // Re-tint existing materials when the palette's primary color changes
+  // (MeshNormalMaterial has no color property — holographic stays rainbow)
+  applyPaletteToMaterials() {
+    const palette = this.app.colorPalette;
+    if (!palette) return;
+    this.meshes.forEach(mesh => {
+      if (mesh.material && mesh.material.color) mesh.material.color.copy(palette.primary);
+    });
+  }
+
   buildShapes() {
     let geometry;
     switch (this.currentShape) {
@@ -148,15 +158,16 @@ export class MeshManager {
 
     let material;
     const flatShading = !this.isSmoothSurface;
+    const primary = this.app.colorPalette ? this.app.colorPalette.primary.getHex() : 0xffffff;
 
     switch (this.materialMode) {
       case 'Monochrome':
-        // "Wireframe" — always lines
-        material = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true });
+        // "Wireframe" — always lines, tinted by the palette's primary color
+        material = new THREE.MeshBasicMaterial({ color: primary, wireframe: true });
         break;
       case 'Lit':
-        // "Solid" — always a filled, lit surface
-        material = new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading });
+        // "Solid" — always a filled, lit surface, tinted by primary
+        material = new THREE.MeshPhongMaterial({ color: primary, flatShading });
         break;
       case 'Hue':
       default:
@@ -335,8 +346,15 @@ export class MeshManager {
             }
             positions.needsUpdate = true;
 
-            // Color follows the routed hue band
-            this.terrainMesh.material.color.setHSL((this.terrainClock * 0.01 + hueV * 0.5) % 1, 0.8, 0.6);
+            // Color follows the routed hue band — full spectrum, or breathing
+            // between the palette's primary/secondary in palette mode
+            const palette = this.app.colorPalette;
+            if (palette?.isPalette()) {
+                const t = 0.5 + 0.5 * Math.sin(this.terrainClock * 0.2);
+                palette.mix(Math.min(1, t + hueV * 0.5), this.terrainMesh.material.color);
+            } else {
+                this.terrainMesh.material.color.setHSL((this.terrainClock * 0.01 + hueV * 0.5) % 1, 0.8, 0.6);
+            }
         }
     } 
     else if (this.sceneMode === 'Particles') {
@@ -350,8 +368,14 @@ export class MeshManager {
             const positions = this.particleSystem.geometry.attributes.position;
             const count = positions.count;
             
-            // Color shift follows the routed hue band
-            this.particleSystem.material.color.setHSL((Date.now() * 0.0001 + hueV) % 1, 0.8, 0.6);
+            // Color shift follows the routed hue band — spectrum or palette blend
+            const palette = this.app.colorPalette;
+            if (palette?.isPalette()) {
+                const t = 0.5 + 0.5 * Math.sin(Date.now() * 0.0005);
+                palette.mix(Math.min(1, t + hueV), this.particleSystem.material.color);
+            } else {
+                this.particleSystem.material.color.setHSL((Date.now() * 0.0001 + hueV) % 1, 0.8, 0.6);
+            }
 
             for (let i = 0; i < count; i++) {
                 const orig = this.originalPositions[i];
