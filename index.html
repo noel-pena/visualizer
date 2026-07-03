@@ -388,6 +388,72 @@
 
       </section>
 
+      <!-- Audio Routing -->
+      <section class="pt-4 border-t border-white/10">
+        <h2 class="text-sm font-semibold text-purple-300 uppercase tracking-wider mb-1">Audio Routing</h2>
+        <p class="text-[11px] text-slate-500 mb-3">Pick which frequency band drives each parameter, and how hard.</p>
+
+        <div class="mb-3">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs text-slate-400">Scale Pulse</span>
+            <select id="route-scale-band" class="bg-black/30 border border-white/10 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-purple-500">
+              <option value="bass" selected>Bass</option><option value="mid">Mid</option><option value="high">High</option><option value="avg">Avg</option><option value="off">Off</option>
+            </select>
+          </div>
+          <input type="range" id="route-scale-amount" min="0" max="2" step="0.05" value="1">
+        </div>
+
+        <div class="mb-3">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs text-slate-400">Rotation Boost</span>
+            <select id="route-rotation-band" class="bg-black/30 border border-white/10 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-purple-500">
+              <option value="bass">Bass</option><option value="mid">Mid</option><option value="high" selected>High</option><option value="avg">Avg</option><option value="off">Off</option>
+            </select>
+          </div>
+          <input type="range" id="route-rotation-amount" min="0" max="2" step="0.05" value="1">
+        </div>
+
+        <div class="mb-3">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs text-slate-400">Hue / Color Shift</span>
+            <select id="route-hue-band" class="bg-black/30 border border-white/10 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-purple-500">
+              <option value="bass">Bass</option><option value="mid" selected>Mid</option><option value="high">High</option><option value="avg">Avg</option><option value="off">Off</option>
+            </select>
+          </div>
+          <input type="range" id="route-hue-amount" min="0" max="2" step="0.05" value="1">
+        </div>
+
+        <div class="mb-3">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs text-slate-400">Glitch Trigger <span class="text-slate-600">(sensitivity)</span></span>
+            <select id="route-glitch-band" class="bg-black/30 border border-white/10 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-purple-500">
+              <option value="bass" selected>Bass</option><option value="mid">Mid</option><option value="high">High</option><option value="avg">Avg</option><option value="off">Off</option>
+            </select>
+          </div>
+          <input type="range" id="route-glitch-amount" min="0" max="2" step="0.05" value="1">
+        </div>
+
+        <div class="mb-3">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs text-slate-400">Bloom Pulse</span>
+            <select id="route-bloom-band" class="bg-black/30 border border-white/10 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-purple-500">
+              <option value="bass">Bass</option><option value="mid">Mid</option><option value="high">High</option><option value="avg">Avg</option><option value="off" selected>Off</option>
+            </select>
+          </div>
+          <input type="range" id="route-bloom-amount" min="0" max="2" step="0.05" value="1">
+        </div>
+
+        <div class="mb-3">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs text-slate-400">Kaleidoscope Spin</span>
+            <select id="route-kaleido-band" class="bg-black/30 border border-white/10 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-purple-500">
+              <option value="bass">Bass</option><option value="mid">Mid</option><option value="high">High</option><option value="avg">Avg</option><option value="off" selected>Off</option>
+            </select>
+          </div>
+          <input type="range" id="route-kaleido-amount" min="0" max="2" step="0.05" value="1">
+        </div>
+      </section>
+
     </div>
   </div>
 

@@ -70,6 +70,7 @@ export class PostProcessor {
     this.smaaPass = null;
 
     this.baseFilmIntensity = 0.2;
+    this.baseBloomStrength = 0.55;
   }
 
   init() {
@@ -94,7 +95,7 @@ export class PostProcessor {
 
     // Unreal Bloom Pass (Makes bright things glow)
     // Strength tuned for the sRGB output pipeline — higher values blow out to white
-    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.55, 0.4, 0.85);
+    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), this.baseBloomStrength, 0.4, 0.85);
     const bloomToggle = document.getElementById('bloom-toggle');
     this.bloomPass.enabled = bloomToggle ? bloomToggle.checked : true;
     this.composer.addPass(this.bloomPass);

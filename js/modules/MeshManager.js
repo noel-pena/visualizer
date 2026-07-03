@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 
+// Reused per-frame to avoid allocating thousands of vectors in the particle loop
+const _scratchVec = new THREE.Vector3();
+
 export class MeshManager {
   constructor(app) {
     this.app = app;
@@ -278,20 +281,23 @@ export class MeshManager {
   update(rotationSpeed, audioData) {
     if (!this.meshGroup) return;
 
-    let bass = audioData ? audioData.bass : 0;
-    let mid = audioData ? audioData.mid : 0;
-    let high = audioData ? audioData.high : 0;
+    // Routed band energies (defaults preserve the classic bass/high/mid mapping)
+    const routing = this.app.audioRouting;
+    const scaleV = routing ? routing.value('scalePulse', audioData) : 0;
+    const rotV = routing ? routing.value('rotationBoost', audioData) : 0;
+    const hueV = routing ? routing.value('hueShift', audioData) : 0;
+    const high = audioData ? audioData.high : 0; // raw sparkle for particle jitter
 
     // Apply global scale
     let targetScale = this.baseScale;
 
     if (this.sceneMode === 'Shapes') {
-        const bassPulse = bass * (this.baseScale * 1.2); 
-        targetScale += bassPulse;
-        
+        const scalePulse = scaleV * (this.baseScale * 1.2);
+        targetScale += scalePulse;
+
         this.meshGroup.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.15);
 
-        const speedMult = 1 + (high * 3);
+        const speedMult = 1 + (rotV * 3);
         this.meshGroup.rotation.x += (rotationSpeed / 2.5) * speedMult;
         this.meshGroup.rotation.y += rotationSpeed * speedMult;
 
@@ -306,7 +312,7 @@ export class MeshManager {
         this.meshGroup.scale.set(this.baseScale, this.baseScale, this.baseScale);
         
         // Scroll the terrain
-        this.terrainClock += 0.05 + (bass * 0.1);
+        this.terrainClock += 0.05 + (scaleV * 0.1);
         
         if (this.terrainMesh) {
             const positions = this.terrainMesh.geometry.attributes.position;
@@ -318,34 +324,34 @@ export class MeshManager {
                 // Get the Y position (which is Z in the flat plane)
                 const y = positions.getY(i);
                 
-                // Create rolling hills that react to bass
-                const wave = Math.sin(y * 0.5 + this.terrainClock) * (bass * 4);
-                
+                // Create rolling hills that react to the routed scale band
+                const wave = Math.sin(y * 0.5 + this.terrainClock) * (scaleV * 4);
+
                 // Exaggerate heights on the edges, leave a valley in the middle
                 const x = positions.getX(i);
                 const valleyMask = Math.abs(x) / 15.0; // 0 at center, 1 at edges
-                
-                positions.setZ(i, baseZ + (wave * valleyMask) + (bass * 2 * valleyMask));
+
+                positions.setZ(i, baseZ + (wave * valleyMask) + (scaleV * 2 * valleyMask));
             }
             positions.needsUpdate = true;
 
-            // Change color based on mid frequencies
-            this.terrainMesh.material.color.setHSL((this.terrainClock * 0.01 + mid * 0.5) % 1, 0.8, 0.6);
+            // Color follows the routed hue band
+            this.terrainMesh.material.color.setHSL((this.terrainClock * 0.01 + hueV * 0.5) % 1, 0.8, 0.6);
         }
     } 
     else if (this.sceneMode === 'Particles') {
         this.meshGroup.scale.set(this.baseScale, this.baseScale, this.baseScale);
         
         // Slowly rotate the galaxy
-        this.meshGroup.rotation.y += rotationSpeed * 0.5 * (1 + mid);
+        this.meshGroup.rotation.y += rotationSpeed * 0.5 * (1 + rotV);
         this.meshGroup.rotation.z += rotationSpeed * 0.2;
 
         if (this.particleSystem) {
             const positions = this.particleSystem.geometry.attributes.position;
             const count = positions.count;
             
-            // Color shift
-            this.particleSystem.material.color.setHSL((Date.now() * 0.0001 + high) % 1, 0.8, 0.6);
+            // Color shift follows the routed hue band
+            this.particleSystem.material.color.setHSL((Date.now() * 0.0001 + hueV) % 1, 0.8, 0.6);
 
             for (let i = 0; i < count; i++) {
                 const orig = this.originalPositions[i];
@@ -356,10 +362,10 @@ export class MeshManager {
                 let py = positions.getY(i);
                 let pz = positions.getZ(i);
                 
-                // On heavy bass, explode outward
-                if (bass > 0.4) {
-                    const dir = new THREE.Vector3(px, py, pz).normalize();
-                    vel.add(dir.multiplyScalar(bass * 0.05));
+                // On heavy hits in the routed scale band, explode outward
+                if (scaleV > 0.4) {
+                    _scratchVec.set(px, py, pz).normalize();
+                    vel.add(_scratchVec.multiplyScalar(scaleV * 0.05));
                 }
 
                 // Apply velocity

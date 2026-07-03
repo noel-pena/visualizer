@@ -2,7 +2,11 @@ const STORAGE_KEY = 'visualizer-presets-v1';
 
 // Every preset-managed control, grouped by how it's read/applied.
 // Apply order matters: scene mode first so geometry controls land on the right scene.
-const SELECTS = ['scene-mode-select', 'shape-select', 'material-select', 'layout-select'];
+const SELECTS = [
+  'scene-mode-select', 'shape-select', 'material-select', 'layout-select',
+  'route-scale-band', 'route-rotation-band', 'route-hue-band',
+  'route-glitch-band', 'route-bloom-band', 'route-kaleido-band',
+];
 const CHECKBOXES = [
   'auto-rotate-toggle', 'auto-camera-toggle', 'smooth-surface-toggle',
   'bloom-toggle', 'sobel-toggle', 'halftone-toggle', 'pulse-effects-toggle',
@@ -13,6 +17,8 @@ const RANGES = [
   'rotation-slider', 'scale-slider', 'detail-slider', 'box-segments-slider',
   'torus-radial-slider', 'torus-tubular-slider', 'cone-segments-slider',
   'shape-count-slider', 'afterimage-damp-slider', 'film-noise-slider',
+  'route-scale-amount', 'route-rotation-amount', 'route-hue-amount',
+  'route-glitch-amount', 'route-bloom-amount', 'route-kaleido-amount',
 ];
 
 const DEFAULTS = {
@@ -24,6 +30,10 @@ const DEFAULTS = {
   'rotation-slider': 0.005, 'scale-slider': 1, 'detail-slider': 3, 'box-segments-slider': 1,
   'torus-radial-slider': 16, 'torus-tubular-slider': 100, 'cone-segments-slider': 32,
   'shape-count-slider': 1, 'afterimage-damp-slider': 0.9, 'film-noise-slider': 0.2,
+  'route-scale-band': 'bass', 'route-rotation-band': 'high', 'route-hue-band': 'mid',
+  'route-glitch-band': 'bass', 'route-bloom-band': 'off', 'route-kaleido-band': 'off',
+  'route-scale-amount': 1, 'route-rotation-amount': 1, 'route-hue-amount': 1,
+  'route-glitch-amount': 1, 'route-bloom-amount': 1, 'route-kaleido-amount': 1,
 };
 
 const FACTORY_PRESETS = {
@@ -31,9 +41,9 @@ const FACTORY_PRESETS = {
   'Pastel Orb': { ...DEFAULTS, 'smooth-surface-toggle': true, 'afterimage-toggle': false, 'film-noise-slider': 0.1, 'detail-slider': 4 },
   'Neon Knot': { ...DEFAULTS, 'shape-select': 'TorusKnot', 'material-select': 'Monochrome', 'rotation-slider': 0.012, 'torus-tubular-slider': 150, 'afterimage-damp-slider': 0.94 },
   'Gyroscope': { ...DEFAULTS, 'shape-select': 'Torus', 'shape-count-slider': 6, 'rotation-slider': 0.01, 'torus-radial-slider': 8, 'torus-tubular-slider': 60 },
-  'Kaleido Dream': { ...DEFAULTS, 'kaleidoscope-toggle': true, 'smooth-surface-toggle': true, 'shape-count-slider': 4, 'auto-camera-toggle': true },
+  'Kaleido Dream': { ...DEFAULTS, 'kaleidoscope-toggle': true, 'smooth-surface-toggle': true, 'shape-count-slider': 4, 'auto-camera-toggle': true, 'route-kaleido-band': 'mid' },
   'Synthwave Drive': { ...DEFAULTS, 'scene-mode-select': 'Synthwave', 'film-noise-slider': 0.35, 'rotation-slider': 0.008 },
-  'Galaxy Dust': { ...DEFAULTS, 'scene-mode-select': 'Particles', 'afterimage-damp-slider': 0.95, 'rotation-slider': 0.015 },
+  'Galaxy Dust': { ...DEFAULTS, 'scene-mode-select': 'Particles', 'afterimage-damp-slider': 0.95, 'rotation-slider': 0.015, 'route-bloom-band': 'bass' },
   'Retro Terminal': { ...DEFAULTS, 'ascii-toggle': true, 'shape-select': 'Box', 'material-select': 'Monochrome', 'random-glitch-toggle': true },
   'Newsprint Ring': { ...DEFAULTS, 'dot-screen-toggle': true, 'material-select': 'Lit', 'smooth-surface-toggle': true, 'shape-select': 'Dodecahedron', 'shape-count-slider': 8, 'layout-select': 'Radial', 'auto-camera-toggle': true },
 };
@@ -238,6 +248,16 @@ export class PresetManager {
     const roll = Math.random();
     if (roll > 0.5) state[pick(stylizers)] = true;
     if (roll > 0.9) state[pick(stylizers)] = true;
+
+    // Audio routing — bias toward the classic mapping, occasionally rewire
+    state['route-scale-band'] = pick(['bass', 'bass', 'bass', 'mid', 'avg']);
+    state['route-rotation-band'] = pick(['high', 'high', 'mid', 'bass']);
+    state['route-hue-band'] = pick(['mid', 'mid', 'high', 'bass']);
+    state['route-glitch-band'] = pick(['bass', 'bass', 'high', 'off']);
+    state['route-bloom-band'] = pick(['off', 'off', 'bass', 'avg']);
+    state['route-kaleido-band'] = state['kaleidoscope-toggle'] ? pick(['mid', 'high', 'bass']) : 'off';
+    ['route-scale-amount', 'route-rotation-amount', 'route-hue-amount', 'route-glitch-amount', 'route-bloom-amount', 'route-kaleido-amount']
+      .forEach(id => { state[id] = rand(0.6, 1.6).toFixed(2); });
 
     return state;
   }

@@ -34,13 +34,11 @@ export class EffectController {
     const postProcessor = this.app.postProcessor;
     const rendererManager = this.app.rendererManager;
     const meshManager = this.app.meshManager;
+    const routing = this.app.audioRouting;
 
     if (!postProcessor || !rendererManager) return;
 
-    let audioSpeedMult = 1;
-    if (audioData) {
-       audioSpeedMult = 1 + audioData.high * 5;
-    }
+    const audioSpeedMult = 1 + (routing ? routing.value('rotationBoost', audioData) : 0) * 5;
 
     // 1. Auto Rotation — modulate the slider's base speed instead of overriding it
     if (this.isAutoRotate) {
@@ -50,8 +48,8 @@ export class EffectController {
     // 2. Hue Shader animation
     if (postProcessor.huePass && postProcessor.huePass.enabled) {
       const time = now * 0.0002;
-      // Modulate hue based on audio mid frequencies if available
-      let hueOffset = audioData ? audioData.mid * Math.PI : 0;
+      // Modulate hue by the routed band (default: mids)
+      const hueOffset = (routing ? routing.value('hueShift', audioData) : 0) * Math.PI;
       this.hueValue = Math.sin(time) + hueOffset;
       if (postProcessor.huePass.uniforms['hue']) {
         postProcessor.huePass.uniforms['hue'].value = this.hueValue;
@@ -63,12 +61,15 @@ export class EffectController {
     // 4. Pulse / Audio-Reactive Glitch Effects
     if (this.isPulseEffectsEnabled && postProcessor.filmPass) {
       let shouldTrigger = false;
-      
-      if (audioData) {
-        // Trigger glitch on strong bass kicks
-        if (audioData.bass > 0.85) {
+
+      if (audioData && routing && routing.band('glitchTrigger') !== 'off') {
+        // Trigger glitch on strong hits in the routed band; the amount slider
+        // acts as sensitivity (band energy x amount vs fixed threshold)
+        if (routing.value('glitchTrigger', audioData) > 0.85) {
             shouldTrigger = true;
         }
+      } else if (audioData) {
+        // Glitch routing set to off — no audio-driven glitches
       } else {
         // Fallback to static BPM if no audio data
         const beatInterval = (60 / this.bpm) * 1000;
@@ -93,13 +94,27 @@ export class EffectController {
       if (shouldTrigger && !postProcessor.glitchPass.enabled && (now - this.lastBeatTime > 200)) { // 200ms debounce
         postProcessor.glitchPass.enabled = true;
         if (postProcessor.rgbShiftPass?.uniforms?.amount) {
-          postProcessor.rgbShiftPass.uniforms['amount'].value = 0.015 + (audioData ? audioData.bass * 0.05 : 0);
+          postProcessor.rgbShiftPass.uniforms['amount'].value = 0.015 + (routing ? routing.value('glitchTrigger', audioData) : 0) * 0.05;
         }
         if (postProcessor.filmPass.uniforms?.intensity) {
           postProcessor.filmPass.uniforms['intensity'].value = Math.min(1.0, postProcessor.baseFilmIntensity * 5);
         }
         this.lastBeatTime = now;
       }
+    }
+
+    // 4b. Bloom Pulse (routed band swells the glow)
+    if (postProcessor.bloomPass) {
+      if (routing && audioData && routing.band('bloomPulse') !== 'off') {
+        postProcessor.bloomPass.strength = postProcessor.baseBloomStrength + routing.value('bloomPulse', audioData) * 1.5;
+      } else {
+        postProcessor.bloomPass.strength = postProcessor.baseBloomStrength;
+      }
+    }
+
+    // 4c. Kaleidoscope Spin (routed band rotates the kaleidoscope)
+    if (postProcessor.kaleidoPass?.enabled && routing && audioData) {
+      postProcessor.kaleidoPass.uniforms['angle'].value += routing.value('kaleidoSpin', audioData) * 0.05;
     }
 
     // 5. Random Glitches (Independent of audio)
