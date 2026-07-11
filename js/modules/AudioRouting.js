@@ -40,4 +40,8 @@ export class AudioRouting {
   band(name) {
     return this.routes[name]?.band ?? 'off';
   }
+
+  amount(name) {
+    return this.routes[name]?.amount ?? 1;
+  }
 }

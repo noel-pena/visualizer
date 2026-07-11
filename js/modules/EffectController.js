@@ -63,10 +63,17 @@ export class EffectController {
       let shouldTrigger = false;
 
       if (audioData && routing && routing.band('glitchTrigger') !== 'off') {
-        // Trigger glitch on strong hits in the routed band; the amount slider
-        // acts as sensitivity (band energy x amount vs fixed threshold)
-        if (routing.value('glitchTrigger', audioData) > 0.85) {
+        const beat = this.app.audioManager?.beat;
+        if (routing.band('glitchTrigger') === 'bass' && beat) {
+          // Adaptive: fire on detected kicks. Sensitivity scales how strong a
+          // kick (instant/average ratio) must be — 1 catches typical kicks,
+          // lower values only the biggest hits, higher values every beat.
+          if (beat.isBeat && beat.strength * routing.amount('glitchTrigger') >= 1.3) {
             shouldTrigger = true;
+          }
+        } else if (routing.value('glitchTrigger', audioData) > 0.85) {
+          // Other bands: level threshold, amount acts as sensitivity
+          shouldTrigger = true;
         }
       } else if (audioData) {
         // Glitch routing set to off — no audio-driven glitches

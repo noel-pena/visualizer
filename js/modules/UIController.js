@@ -374,6 +374,25 @@ export class UIController {
     }
 
 
+    // --- Beat indicator + detected BPM readout ---
+    const beatDot = document.getElementById('beat-dot');
+    const bpmDisplay = document.getElementById('bpm-display');
+    if (audioManager && (beatDot || bpmDisplay)) {
+      let dotTimeout = null;
+      audioManager.beatCallbacks.push((strength, bpm) => {
+        if (bpmDisplay && bpm > 0) bpmDisplay.textContent = `≈${bpm} BPM`;
+        if (beatDot) {
+          beatDot.classList.remove('bg-purple-500/30');
+          beatDot.classList.add('bg-purple-400');
+          clearTimeout(dotTimeout);
+          dotTimeout = setTimeout(() => {
+            beatDot.classList.add('bg-purple-500/30');
+            beatDot.classList.remove('bg-purple-400');
+          }, 120);
+        }
+      });
+    }
+
     // --- Export Settings ---
     const aspectRatioSelect = document.getElementById('aspect-ratio-select');
     const qualitySelect = document.getElementById('quality-select');

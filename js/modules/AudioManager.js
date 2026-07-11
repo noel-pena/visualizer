@@ -30,6 +30,22 @@ export default class AudioManager {
         this.smoothedHigh = 0;
         this.smoothedAvg = 0;
         this.smoothingFactor = 0.85; // 0 = no smoothing, 0.99 = heavily smoothed
+
+        // Dedicated analyser for beat detection — the main analyser's
+        // smoothingTimeConstant flattens kick transients too much to detect
+        this.beatAnalyser = null;
+        this.beatData = null;
+
+        // Adaptive beat detection state (kick detection on raw bass energy)
+        this.beat = {
+            history: [],     // {t, e} raw bass samples over the last ~1s
+            lastBeatTime: 0,
+            intervals: [],   // recent inter-beat intervals (ms) for BPM
+            bpm: 0,
+            strength: 0,     // instant/average energy ratio at the last beat
+            isBeat: false,   // true only on the frame a beat was detected
+        };
+        this.beatCallbacks = []; // push (strength, bpm) => {} to subscribe
     }
 
     init() {
@@ -46,6 +62,16 @@ export default class AudioManager {
         
         this.bufferLength = this.analyser.frequencyBinCount;
         this.dataArray = new Uint8Array(this.bufferLength);
+
+        // Fast-attack analyser for onset/beat detection. The default byte
+        // range tops out at -30dB, which saturates on loud masters and erases
+        // kick transients — widen it to keep headroom up to 0dBFS.
+        this.beatAnalyser = this.audioContext.createAnalyser();
+        this.beatAnalyser.fftSize = 256;
+        this.beatAnalyser.smoothingTimeConstant = 0.15;
+        this.beatAnalyser.minDecibels = -70;
+        this.beatAnalyser.maxDecibels = 0;
+        this.beatData = new Uint8Array(this.beatAnalyser.frequencyBinCount);
 
         // Create stream destination for recording
         this.streamDestination = this.audioContext.createMediaStreamDestination();
@@ -86,9 +112,12 @@ export default class AudioManager {
 
         // Connect nodes
         this.sourceNode = this.audioContext.createMediaElementSource(this.audioElement);
-        
+
         // Source -> Analyser
         this.sourceNode.connect(this.analyser);
+
+        // Source -> Beat Analyser (analysis only, not routed to output)
+        this.sourceNode.connect(this.beatAnalyser);
         
         // Analyser -> Output (Speakers)
         this.analyser.connect(this.audioContext.destination);
@@ -150,6 +179,58 @@ export default class AudioManager {
         this.smoothedMid = (this.smoothedMid * this.smoothingFactor) + (rawMid * (1 - this.smoothingFactor));
         this.smoothedHigh = (this.smoothedHigh * this.smoothingFactor) + (rawHigh * (1 - this.smoothingFactor));
         this.smoothedAvg = (this.smoothedAvg * this.smoothingFactor) + (rawAvg * (1 - this.smoothingFactor));
+
+        // Beat detection reads the fast-attack analyser (bins 0-5 = lows)
+        if (this.beatAnalyser) {
+            this.beatAnalyser.getByteFrequencyData(this.beatData);
+            let sum = 0;
+            for (let i = 0; i < 5; i++) sum += this.beatData[i];
+            this._detectBeat(sum / (5 * 255), Date.now());
+        }
+    }
+
+    // Adaptive kick detection: a beat is an instant bass spike well above the
+    // rolling local average, so it tracks the mix's own level instead of a
+    // fixed absolute threshold. Variance tightens the ratio on steady material.
+    _detectBeat(rawBass, now) {
+        const beat = this.beat;
+        beat.isBeat = false;
+
+        const history = beat.history;
+        history.push({ t: now, e: rawBass });
+        while (history.length && now - history[0].t > 1000) history.shift();
+        if (history.length < 20) return;
+
+        let avg = 0;
+        for (const s of history) avg += s.e;
+        avg /= history.length;
+
+        let variance = 0;
+        for (const s of history) variance += (s.e - avg) * (s.e - avg);
+        variance /= history.length;
+
+        // A beat is a statistical outlier: clearly above the local mean by
+        // 1.5 standard deviations. The ratio floor guards against firing on
+        // tiny wiggles when the material is very steady (low variance).
+        const threshold = Math.max(avg + 1.5 * Math.sqrt(variance), avg * 1.15);
+        const refractoryMs = 250; // caps detection at ~240 BPM
+
+        if (rawBass > 0.05 && rawBass > threshold && now - beat.lastBeatTime > refractoryMs) {
+            const interval = now - beat.lastBeatTime;
+            beat.lastBeatTime = now;
+            beat.isBeat = true;
+            beat.strength = avg > 0 ? rawBass / avg : 1;
+
+            // BPM from the median of recent inter-beat intervals
+            if (interval < 2000) {
+                beat.intervals.push(interval);
+                if (beat.intervals.length > 8) beat.intervals.shift();
+                const sorted = [...beat.intervals].sort((a, b) => a - b);
+                beat.bpm = Math.round(60000 / sorted[Math.floor(sorted.length / 2)]);
+            }
+
+            this.beatCallbacks.forEach(cb => cb(beat.strength, beat.bpm));
+        }
     }
 
     _calculateRawEnergy(startBin, endBin) {

@@ -68,7 +68,10 @@ const hslToHex = (h, s, l) => {
 export class PresetManager {
   constructor(app) {
     this.app = app;
+    this.autopilotEnabled = false;
+    this.autopilotSync = 'timer'; // 'timer' | 'beats'
     this.autopilotTimer = null;
+    this.beatCounter = 0;
   }
 
   init() {
@@ -89,8 +92,22 @@ export class PresetManager {
     const autopilotToggle = document.getElementById('autopilot-toggle');
     if (autopilotToggle) {
       autopilotToggle.addEventListener('change', (e) => {
-        if (e.target.checked) this.startAutopilot();
-        else this.stopAutopilot();
+        this.autopilotEnabled = e.target.checked;
+        this.beatCounter = 0;
+        this.restartAutopilotTimer();
+      });
+    }
+
+    const syncSelect = document.getElementById('autopilot-sync-select');
+    const timerControl = document.getElementById('autopilot-timer-control');
+    const barsControl = document.getElementById('autopilot-bars-control');
+    if (syncSelect) {
+      syncSelect.addEventListener('change', (e) => {
+        this.autopilotSync = e.target.value;
+        this.beatCounter = 0;
+        this.restartAutopilotTimer();
+        if (timerControl) timerControl.style.display = this.autopilotSync === 'timer' ? 'block' : 'none';
+        if (barsControl) barsControl.style.display = this.autopilotSync === 'beats' ? 'block' : 'none';
       });
     }
 
@@ -99,10 +116,29 @@ export class PresetManager {
     if (intervalSlider) {
       intervalSlider.addEventListener('input', (e) => {
         if (intervalValue) intervalValue.textContent = `${e.target.value}s`;
-        // Restart the timer with the new interval if running
-        if (this.autopilotTimer) this.startAutopilot();
+        this.restartAutopilotTimer();
       });
     }
+
+    const barsSlider = document.getElementById('autopilot-bars-slider');
+    const barsValue = document.getElementById('autopilot-bars-value');
+    if (barsSlider) {
+      barsSlider.addEventListener('input', (e) => {
+        if (barsValue) barsValue.textContent = `${e.target.value} bar${e.target.value === '1' ? '' : 's'}`;
+        this.beatCounter = 0;
+      });
+    }
+
+    // Beat-synced mode: tick on bar boundaries (4 detected beats = 1 bar)
+    this.app.audioManager?.beatCallbacks.push(() => {
+      if (!this.autopilotEnabled || this.autopilotSync !== 'beats') return;
+      this.beatCounter++;
+      const bars = parseInt(document.getElementById('autopilot-bars-slider')?.value || '4');
+      if (this.beatCounter >= bars * 4) {
+        this.beatCounter = 0;
+        this.autopilotTick();
+      }
+    });
   }
 
   // --- State capture & apply -------------------------------------------------
@@ -293,17 +329,17 @@ export class PresetManager {
 
   // --- Auto-Pilot ------------------------------------------------------------
 
-  startAutopilot() {
-    this.stopAutopilot();
-    const intervalSlider = document.getElementById('autopilot-interval-slider');
-    const seconds = intervalSlider ? parseInt(intervalSlider.value) : 8;
-    this.autopilotTimer = setInterval(() => this.autopilotTick(), seconds * 1000);
-  }
-
-  stopAutopilot() {
+  // The interval timer only runs in 'timer' sync mode; 'beats' mode ticks
+  // from the beat callback registered in init().
+  restartAutopilotTimer() {
     if (this.autopilotTimer) {
       clearInterval(this.autopilotTimer);
       this.autopilotTimer = null;
+    }
+    if (this.autopilotEnabled && this.autopilotSync === 'timer') {
+      const intervalSlider = document.getElementById('autopilot-interval-slider');
+      const seconds = intervalSlider ? parseInt(intervalSlider.value) : 8;
+      this.autopilotTimer = setInterval(() => this.autopilotTick(), seconds * 1000);
     }
   }
 
