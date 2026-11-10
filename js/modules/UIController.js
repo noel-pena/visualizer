@@ -36,13 +36,14 @@ export class UIController {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('mobile-overlay');
 
+    // On phones the sidebar is a bottom sheet that slides up over the canvas
     const openMobileMenu = () => {
-      sidebar.classList.remove('-translate-x-full');
+      sidebar.classList.remove('translate-y-full');
       overlay.classList.remove('hidden');
     };
 
     const closeMobileMenu = () => {
-      sidebar.classList.add('-translate-x-full');
+      sidebar.classList.add('translate-y-full');
       overlay.classList.add('hidden');
     };
 
@@ -444,6 +445,47 @@ export class UIController {
     const saveImageButton = document.getElementById('save-image-button');
     if (saveImageButton && recorder) {
       saveImageButton.addEventListener('click', () => recorder.saveImage());
+    }
+
+    // --- Phone export: save via the share sheet (Photos, AirDrop, Instagram…) ---
+    const exportToast = document.getElementById('export-toast');
+    const exportToastText = document.getElementById('export-toast-text');
+    const exportShareBtn = document.getElementById('export-share-btn');
+    const exportDismissBtn = document.getElementById('export-dismiss-btn');
+
+    if (exportToast && recorder) {
+      let pendingFile = null;
+
+      const hideToast = () => {
+        pendingFile = null;
+        exportToast.classList.add('hidden');
+      };
+
+      recorder.onShareReady = (file) => {
+        pendingFile = file;
+        const isVideo = file.type.startsWith('video/');
+        exportToastText.textContent = isVideo ? 'Your video is ready' : 'Your snapshot is ready';
+        exportShareBtn.textContent = isVideo ? 'Save Video' : 'Save Image';
+        exportToast.classList.remove('hidden');
+      };
+
+      exportShareBtn.addEventListener('click', async () => {
+        if (!pendingFile) return;
+        const file = pendingFile;
+        try {
+          await navigator.share({ files: [file] });
+          hideToast();
+        } catch (e) {
+          // AbortError = user closed the sheet; keep the toast so they can retry
+          if (e.name !== 'AbortError') {
+            console.error('Share failed, falling back to download:', e);
+            recorder.downloadDataURL(URL.createObjectURL(file), file.name);
+            hideToast();
+          }
+        }
+      });
+
+      exportDismissBtn.addEventListener('click', hideToast);
     }
   }
 }

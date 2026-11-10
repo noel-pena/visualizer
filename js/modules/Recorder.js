@@ -15,6 +15,7 @@ export class Recorder {
 
     // UI hooks — set by UIController so the recorder never touches the DOM
     this.onStopCallback = null;
+    this.onShareReady = null; // (file) => {} — phone exports go through the share sheet
   }
 
   init() {}
@@ -166,9 +167,22 @@ export class Recorder {
   downloadRecording(extension = 'webm') {
     const mimeType = extension === 'mp4' ? 'video/mp4' : 'video/webm';
     const blob = new Blob(this.recordedChunks, { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const filename = `glitch-visualizer-export.${extension}`;
-    this.downloadDataURL(url, filename);
+    this.deliverFile(blob, `glitch-visualizer-export.${extension}`);
+  }
+
+  // On phones a download lands in Files (iOS) or a downloads folder; the share
+  // sheet offers "Save Video/Image" straight to Photos instead. navigator.share
+  // needs a fresh tap, so the UI shows a save button rather than sharing here.
+  deliverFile(blob, filename) {
+    const file = new File([blob], filename, { type: blob.type });
+    const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+
+    if (isTouchDevice && this.onShareReady && navigator.canShare?.({ files: [file] })) {
+      this.onShareReady(file);
+      return;
+    }
+
+    this.downloadDataURL(URL.createObjectURL(blob), filename);
   }
 
   downloadDataURL(dataURL, filename) {
@@ -231,8 +245,9 @@ export class Recorder {
       postProcessor.composer.render(); // Fresh render
       ctx.drawImage(renderer.domElement, 0, 0);
 
-      const dataURL = tempCanvas.toDataURL('image/png');
-      this.downloadDataURL(dataURL, filename);
+      tempCanvas.toBlob((blob) => {
+        if (blob) this.deliverFile(blob, filename);
+      }, 'image/png');
 
     } catch (e) {
       console.error("Error saving image:", e);

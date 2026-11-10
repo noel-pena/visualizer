@@ -50,6 +50,12 @@ export default class AudioManager {
 
     init() {
         if (this.audioContext) return;
+
+        // iOS mutes Web Audio when the ring/silent switch is on unless the
+        // page declares itself a media-playback session (Safari 16.4+)
+        if (navigator.audioSession) {
+            navigator.audioSession.type = 'playback';
+        }
         
         // Create context
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();

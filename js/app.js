@@ -1,3 +1,4 @@
+import '../css/tailwind.css';
 import { Renderer } from './modules/Renderer.js';
 import { PostProcessor } from './modules/PostProcessor.js';
 import { MeshManager } from './modules/MeshManager.js';
@@ -48,3 +49,11 @@ document.addEventListener('DOMContentLoaded', () => {
   app.init();
   window.visualizerApp = app; // console/debug access
 });
+
+// Offline support for the home-screen install. Production only, so the dev
+// server's hot reload never fights a cached bundle.
+if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch((e) => console.warn('Service worker registration failed:', e));
+  });
+}
