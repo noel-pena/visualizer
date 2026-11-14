@@ -20,6 +20,11 @@ export class MeshManager {
     this.isSmoothSurface = false;
     this.baseScale = 1.0;
 
+    // Hue rotation for the Holographic material (driven by EffectController).
+    // Done in the material rather than as a full-screen pass so the background
+    // color/image keeps its own colors.
+    this.hueUniform = { value: 0 };
+
     this.sphereDetail = 3;
     this.boxSegments = 1;
     this.torusRadialSeg = 16;
@@ -174,6 +179,20 @@ export class MeshManager {
         // "Holographic" — classic rainbow wireframe; Smooth Surface toggle fills it.
         // flatShading must stay off: derivative-based flat normals turn wireframe lines black (NaN).
         material = new THREE.MeshNormalMaterial({ wireframe: !this.isSmoothSurface, flatShading: false });
+        material.onBeforeCompile = (shader) => {
+          shader.uniforms.hueShift = this.hueUniform;
+          shader.fragmentShader = shader.fragmentShader
+            .replace('void main() {', 'uniform float hueShift;\nvoid main() {')
+            .replace(
+              'gl_FragColor = vec4( packNormalToRGB( normal ), opacity );',
+              `gl_FragColor = vec4( packNormalToRGB( normal ), opacity );
+              // Rotate around the grey axis (same math as three's HueSaturationShader)
+              float hueAngle = hueShift * 3.14159265;
+              float hueS = sin( hueAngle ), hueC = cos( hueAngle );
+              vec3 hueK = vec3( 0.57735 );
+              gl_FragColor.rgb = gl_FragColor.rgb * hueC + cross( hueK, gl_FragColor.rgb ) * hueS + hueK * dot( hueK, gl_FragColor.rgb ) * ( 1.0 - hueC );`
+            );
+        };
         break;
     }
 

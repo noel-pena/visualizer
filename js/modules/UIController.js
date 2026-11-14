@@ -6,6 +6,53 @@ export class UIController {
   init() {
     this.setupSidebar();
     this.setupEventListeners();
+    this.setupContextualControls();
+  }
+
+  // Hide controls that can't affect the current look (e.g. shape color while
+  // the Holographic material is on, layout with a single shape), so every
+  // control on screen does something when touched.
+  setupContextualControls() {
+    const value = (id) => document.getElementById(id)?.value;
+    const isOn = (id) => !!document.getElementById(id)?.checked;
+    const show = (id, visible) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = visible ? '' : 'none';
+    };
+
+    const update = () => {
+      const isShapes = value('scene-mode-select') === 'Shapes';
+      const material = value('material-select');
+      const isPalette = value('color-mode-select') === 'palette';
+
+      // Colors: Holographic shapes ignore the palette; terrain/particles only
+      // use Primary/Secondary in palette mode
+      show('color-mode-row', !isShapes);
+      show('primary-color-row', isShapes ? material !== 'Hue' : isPalette);
+      show('secondary-color-row', !isShapes && isPalette);
+      show('holographic-color-hint', isShapes && material === 'Hue');
+
+      // Geometry
+      show('smooth-surface-row', material !== 'Monochrome'); // wireframe has no surface
+      show('layout-row', parseInt(value('shape-count-slider')) > 1);
+
+      // Effects
+      show('afterimage-damp-row', isOn('afterimage-toggle'));
+
+      // Audio routing targets whose effect is switched off
+      show('route-hue-row', !isShapes || material === 'Hue');
+      show('route-glitch-row', isOn('pulse-effects-toggle'));
+      show('route-bloom-row', isOn('bloom-toggle'));
+      show('route-kaleido-row', isOn('kaleidoscope-toggle'));
+    };
+
+    // Presets/randomize/auto-pilot dispatch bubbling events, so this catches them too
+    const content = document.getElementById('sidebar-content');
+    if (content) {
+      content.addEventListener('change', update);
+      content.addEventListener('input', update);
+    }
+    update();
   }
 
   setupSidebar() {
@@ -36,15 +83,25 @@ export class UIController {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('mobile-overlay');
 
-    // On phones the sidebar is a bottom sheet that slides up over the canvas
+    // On phones the sidebar is a bottom sheet. While it's open the preview
+    // shrinks into the space above it, so changes are visible as they're made.
+    const container = document.getElementById('canvas-container');
+    const fitPreviewAboveSheet = (isOpen) => {
+      if (!container) return;
+      container.style.height = isOpen ? `calc(100% - ${sidebar.offsetHeight}px)` : '';
+      this.app.rendererManager?.onWindowResize();
+    };
+
     const openMobileMenu = () => {
       sidebar.classList.remove('translate-y-full');
       overlay.classList.remove('hidden');
+      fitPreviewAboveSheet(true);
     };
 
     const closeMobileMenu = () => {
       sidebar.classList.add('translate-y-full');
       overlay.classList.add('hidden');
+      fitPreviewAboveSheet(false);
     };
 
     if (mobileBtn) mobileBtn.addEventListener('click', openMobileMenu);
@@ -69,6 +126,22 @@ export class UIController {
           geometrySection.style.display = mode === 'Shapes' ? 'block' : 'none';
         }
       });
+    }
+
+    // --- Background image ---
+    const backgroundImageInput = document.getElementById('background-image-input');
+    const backgroundImageClearBtn = document.getElementById('background-image-clear-btn');
+    const colorPalette = this.app.colorPalette;
+    if (backgroundImageInput && colorPalette) {
+      backgroundImageInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) colorPalette.setBackgroundImage(file);
+        e.target.value = ''; // allow re-picking the same file
+      });
+      backgroundImageClearBtn?.addEventListener('click', () => colorPalette.clearBackgroundImage());
+      colorPalette.onBackgroundImageChange = (hasImage) => {
+        backgroundImageClearBtn?.classList.toggle('hidden', !hasImage);
+      };
     }
 
     // --- Motion ---
@@ -165,9 +238,6 @@ export class UIController {
         if (meshManager) {
           meshManager.materialMode = e.target.value;
           meshManager.updateMeshInstances();
-        }
-        if (postProcessor && postProcessor.huePass) {
-          postProcessor.huePass.enabled = (e.target.value === 'Hue');
         }
       });
     }

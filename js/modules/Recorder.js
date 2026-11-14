@@ -3,47 +3,48 @@ export class Recorder {
     this.app = app;
 
     this.mediaRecorder = null;
+    this.videoStream = null;
     this.recordedChunks = [];
     this.isRecording = false;
-
-    this.isPortraitMode = false;
-    this.isTransparentBackground = false;
-    this.uploadedImageElement = null; // Store image object for compositing
-
-    this.compositeCanvas = null;
-    this.compositeCtx = null;
+    this.wakeLock = null;
 
     // UI hooks — set by UIController so the recorder never touches the DOM
     this.onStopCallback = null;
     this.onShareReady = null; // (file) => {} — phone exports go through the share sheet
   }
 
-  init() {}
+  init() {
+    // The screen wake lock is dropped whenever the page is hidden; take it
+    // back if we return mid-recording
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && this.isRecording) this.acquireWakeLock();
+    });
+  }
 
   startRecording(audioStream = null) {
     if (this.isRecording) return;
 
-    const renderer = this.app.rendererManager.renderer;
+    const canvas = this.app.rendererManager.renderer.domElement;
+    const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
 
     this.isRecording = true;
     this.recordedChunks = [];
 
-    // --- Setup Composite Recording (BG Image + WebGL) ---
-    this.compositeCanvas = document.createElement('canvas');
-    this.compositeCanvas.width = renderer.domElement.width;
-    this.compositeCanvas.height = renderer.domElement.height;
-    this.compositeCtx = this.compositeCanvas.getContext('2d');
-
-    // Capture at 60 FPS for smoother motion
-    const videoStream = this.compositeCanvas.captureStream(60);
-    let finalStream = videoStream;
+    // Capture the visible WebGL canvas directly. The background is part of the
+    // scene, so no compositing is needed — and Safari stops delivering frames
+    // from a canvas that isn't attached to the page.
+    // Phones record at 30 FPS: it halves the encoder's work, and it's what
+    // Reels/Shorts play back at anyway.
+    const fps = isTouchDevice ? 30 : 60;
+    this.videoStream = canvas.captureStream(fps);
+    let finalStream = this.videoStream;
 
     // Multiplex audio and video streams if audio is provided
     if (audioStream) {
       const audioTracks = audioStream.getAudioTracks();
       if (audioTracks.length > 0) {
         finalStream = new MediaStream([
-          ...videoStream.getVideoTracks(),
+          ...this.videoStream.getVideoTracks(),
           ...audioTracks
         ]);
       }
@@ -51,9 +52,10 @@ export class Recorder {
 
     // Smart MIME Type Selection (Prefer MP4, fallback to High Quality WebM)
     const mimeTypes = [
+      'video/mp4;codecs=avc1,mp4a.40.2', // H.264 + AAC: plays everywhere, uploads anywhere
       'video/mp4',             // Safari / Native MP4 support
       'video/webm;codecs=vp9,opus', // High quality Chrome/Firefox with audio
-      'video/webm;codecs=vp9', 
+      'video/webm;codecs=vp9',
       'video/webm;codecs=vp8,opus',
       'video/webm;codecs=vp8',
       'video/webm'
@@ -63,15 +65,21 @@ export class Recorder {
 
     if (!supportedMimeType) {
       console.error("No supported MIME type for MediaRecorder");
-      this.isRecording = false;
-      if (this.onStopCallback) this.onStopCallback();
+      this.finishRecording();
       return;
     }
 
+    // Bitrate scales with the frame: ~8 Mbps at 1080p30, ~16 at 1080p60,
+    // capped for 4K. The whole recording is held in memory until it's saved,
+    // so a fixed high bitrate made full-length songs too big for a phone.
+    const videoBitsPerSecond = Math.round(
+      Math.min(40_000_000, Math.max(4_000_000, canvas.width * canvas.height * fps * 0.13))
+    );
+
     const options = {
       mimeType: supportedMimeType,
-      videoBitsPerSecond: 25000000, // 25 Mbps high quality video
-      audioBitsPerSecond: 320000    // 320 kbps high quality audio
+      videoBitsPerSecond,
+      audioBitsPerSecond: 256000
     };
 
     try {
@@ -87,20 +95,22 @@ export class Recorder {
       }
     };
 
+    this.mediaRecorder.onerror = (event) => {
+      console.error("MediaRecorder error:", event.error || event);
+      this.stopRecording();
+    };
+
     this.mediaRecorder.onstop = () => {
       const isMp4 = supportedMimeType.includes('mp4');
       const extension = isMp4 ? 'mp4' : 'webm';
 
       this.downloadRecording(extension);
-      this.isRecording = false;
-
-      this.compositeCanvas = null;
-      this.compositeCtx = null;
-
-      if (this.onStopCallback) this.onStopCallback();
+      this.finishRecording();
     };
 
-    this.mediaRecorder.start();
+    // Flush encoded data every second instead of in one piece at the end
+    this.mediaRecorder.start(1000);
+    this.acquireWakeLock();
   }
 
   stopRecording() {
@@ -109,64 +119,44 @@ export class Recorder {
     }
   }
 
-  // Fills ctx with the palette background as a radial gradient (matches the
-  // on-screen CSS backdrop), falling back to black without a palette.
-  fillBackground(ctx, width, height) {
-    const palette = this.app.colorPalette;
-    if (palette) {
-      const g = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) / 1.5);
-      g.addColorStop(0, palette.lighterBackgroundHex());
-      g.addColorStop(1, palette.background);
-      ctx.fillStyle = g;
-    } else {
-      ctx.fillStyle = '#000';
+  // Shared teardown for every stop path (manual, song end, error)
+  finishRecording() {
+    this.isRecording = false;
+    if (this.videoStream) {
+      this.videoStream.getVideoTracks().forEach(track => track.stop());
+      this.videoStream = null;
     }
-    ctx.fillRect(0, 0, width, height);
+    this.releaseWakeLock();
+    if (this.onStopCallback) this.onStopCallback();
   }
 
-  renderCompositeFrame() {
-    const renderer = this.app.rendererManager.renderer;
-    if (!this.compositeCtx || !renderer || !renderer.domElement) return;
-
-    const width = this.compositeCanvas.width;
-    const height = this.compositeCanvas.height;
-
-    // 1. Draw Background
-    if (this.uploadedImageElement && !this.isTransparentBackground) {
-      const img = this.uploadedImageElement;
-      const imgRatio = img.width / img.height;
-      const canvasRatio = width / height;
-      let drawWidth, drawHeight, offsetX, offsetY;
-
-      if (imgRatio > canvasRatio) {
-        drawHeight = height;
-        drawWidth = img.width * (height / img.height);
-        offsetX = (width - drawWidth) / 2;
-        offsetY = 0;
-      } else {
-        drawWidth = width;
-        drawHeight = img.height * (width / img.width);
-        offsetX = 0;
-        offsetY = (height - drawHeight) / 2;
-      }
-
-      this.compositeCtx.fillStyle = '#111'; // Fallback
-      this.compositeCtx.fillRect(0, 0, width, height);
-      this.compositeCtx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-    } else {
-      this.compositeCtx.clearRect(0, 0, width, height);
-      if (!this.isTransparentBackground) {
-        this.fillBackground(this.compositeCtx, width, height);
-      }
+  // Keep the screen on while recording — a phone that auto-locks suspends the
+  // page and ends the take. Unsupported browsers just skip this.
+  async acquireWakeLock() {
+    if (!navigator.wakeLock || this.wakeLock) return;
+    try {
+      const lock = await navigator.wakeLock.request('screen');
+      lock.addEventListener('release', () => {
+        if (this.wakeLock === lock) this.wakeLock = null;
+      });
+      if (this.isRecording) this.wakeLock = lock;
+      else lock.release();
+    } catch (e) {
+      console.warn('Screen wake lock unavailable:', e);
     }
+  }
 
-    // 2. Draw WebGL Canvas on top
-    this.compositeCtx.drawImage(renderer.domElement, 0, 0);
+  releaseWakeLock() {
+    if (this.wakeLock) {
+      this.wakeLock.release().catch(() => {});
+      this.wakeLock = null;
+    }
   }
 
   downloadRecording(extension = 'webm') {
     const mimeType = extension === 'mp4' ? 'video/mp4' : 'video/webm';
     const blob = new Blob(this.recordedChunks, { type: mimeType });
+    this.recordedChunks = [];
     this.deliverFile(blob, `glitch-visualizer-export.${extension}`);
   }
 
@@ -205,50 +195,14 @@ export class Recorder {
     const postProcessor = this.app.postProcessor;
     if (!renderer || !postProcessor) return;
 
+    const canvas = renderer.domElement;
+    const orientation = canvas.height > canvas.width ? 'portrait' : canvas.height === canvas.width ? 'square' : 'landscape';
+
     try {
-      const filename = `glitch-visualizer-${this.isPortraitMode ? 'portrait' : 'landscape'}${this.isTransparentBackground ? '-transparent' : ''}.png`;
-
-      // Create a temporary canvas for composition
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = renderer.domElement.width;
-      tempCanvas.height = renderer.domElement.height;
-      const ctx = tempCanvas.getContext('2d');
-
-      // 1. Draw Background Image
-      if (this.uploadedImageElement && !this.isTransparentBackground) {
-        const width = tempCanvas.width;
-        const height = tempCanvas.height;
-        const img = this.uploadedImageElement;
-
-        const imgRatio = img.width / img.height;
-        const canvasRatio = width / height;
-        let drawWidth, drawHeight, offsetX, offsetY;
-
-        if (imgRatio > canvasRatio) {
-          drawHeight = height;
-          drawWidth = img.width * (height / img.height);
-          offsetX = (width - drawWidth) / 2;
-          offsetY = 0;
-        } else {
-          drawWidth = width;
-          drawHeight = img.height * (width / img.width);
-          offsetX = 0;
-          offsetY = (height - drawHeight) / 2;
-        }
-
-        ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-      } else if (!this.isTransparentBackground) {
-        this.fillBackground(ctx, tempCanvas.width, tempCanvas.height);
-      }
-
-      // 2. Draw WebGL Content
-      postProcessor.composer.render(); // Fresh render
-      ctx.drawImage(renderer.domElement, 0, 0);
-
-      tempCanvas.toBlob((blob) => {
-        if (blob) this.deliverFile(blob, filename);
+      postProcessor.render(); // Fresh render — the background is part of the scene
+      canvas.toBlob((blob) => {
+        if (blob) this.deliverFile(blob, `glitch-visualizer-${orientation}.png`);
       }, 'image/png');
-
     } catch (e) {
       console.error("Error saving image:", e);
     }

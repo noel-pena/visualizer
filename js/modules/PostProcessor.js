@@ -2,7 +2,6 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { GlitchPass } from 'three/examples/jsm/postprocessing/GlitchPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import { HueSaturationShader } from 'three/examples/jsm/shaders/HueSaturationShader.js';
 import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js';
 import { FilmPass } from 'three/examples/jsm/postprocessing/FilmPass.js';
 import { RGBShiftShader } from 'three/examples/jsm/shaders/RGBShiftShader.js';
@@ -57,7 +56,6 @@ export class PostProcessor {
     this.composer = null;
     this.glitchPass = null;
     this.filmPass = null;
-    this.huePass = null;
     this.rgbShiftPass = null;
     this.dotScreenPass = null;
     this.afterimagePass = null;
@@ -71,6 +69,10 @@ export class PostProcessor {
 
     this.baseFilmIntensity = 0.2;
     this.baseBloomStrength = 0.55;
+
+    // Bloom is the most expensive pass (a 5-level blur chain). Phones run it
+    // at half resolution — the glow is blurry by nature, so it reads the same.
+    this.bloomScale = window.matchMedia('(pointer: coarse)').matches ? 0.5 : 1;
   }
 
   init() {
@@ -133,12 +135,6 @@ export class PostProcessor {
     this.glitchPass.enabled = false;
     this.composer.addPass(this.glitchPass);
 
-    // Hue Pass
-    this.huePass = new ShaderPass(HueSaturationShader);
-    const materialSelect = document.getElementById('material-select');
-    this.huePass.enabled = materialSelect ? (materialSelect.value === 'Hue') : true;
-    this.composer.addPass(this.huePass);
-
     // RGB Shift Pass
     this.rgbShiftPass = new ShaderPass(RGBShiftShader);
     this.rgbShiftPass.uniforms['amount'].value = 0.0;
@@ -184,7 +180,7 @@ export class PostProcessor {
       this.asciiPass.uniforms['resolution'].value.set(width, height);
     }
     if (this.bloomPass) {
-      this.bloomPass.setSize(width, height);
+      this.bloomPass.setSize(width * this.bloomScale, height * this.bloomScale);
     }
     if (this.sobelPass) {
       this.sobelPass.uniforms['resolution'].value.set(canvasWidth, canvasHeight);
@@ -196,6 +192,10 @@ export class PostProcessor {
 
   render(now) {
     if (this.composer) {
+      // Skip full-screen passes that would be a no-op this frame
+      this.rgbShiftPass.enabled = this.rgbShiftPass.uniforms['amount'].value > 0;
+      this.filmPass.enabled = this.filmPass.uniforms['intensity'].value > 0;
+
       this.composer.render();
     }
   }

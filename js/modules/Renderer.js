@@ -29,9 +29,9 @@ export class Renderer {
 
     this.renderer = new THREE.WebGLRenderer({
       canvas: canvas,
-      antialias: true,
+      antialias: false, // the composer's SMAA pass handles anti-aliasing
       preserveDrawingBuffer: true,
-      alpha: true // Crucial for CSS background to show through
+      alpha: true
     });
 
     this.renderer.setPixelRatio(window.devicePixelRatio);
@@ -102,10 +102,11 @@ export class Renderer {
 
   onWindowResize() {
     const container = document.getElementById('canvas-container') || document.body;
-    
-    // Available space in the window
-    const availableWidth = window.innerWidth;
-    const availableHeight = window.innerHeight;
+
+    // Available space: the container, which shrinks to sit above the controls
+    // sheet while it's open on phones
+    const availableWidth = container.clientWidth || window.innerWidth;
+    const availableHeight = container.clientHeight || window.innerHeight;
 
     // Use default if not set
     if (!this.renderWidth || !this.renderHeight) {
@@ -148,6 +149,9 @@ export class Renderer {
     if (this.app.postProcessor) {
       this.app.postProcessor.setSize(renderW, renderH, renderW, renderH);
     }
+
+    // A background image is cropped to the frame's aspect ratio
+    this.app.colorPalette?.fitBackgroundImage();
   }
 
   updateCameraOffset() {
@@ -198,11 +202,6 @@ export class Renderer {
     // 3. Render post-processing passes
     if (this.app.postProcessor) {
       this.app.postProcessor.render(now);
-    }
-
-    // 4. Update Composite Canvas if Recording
-    if (this.app.recorder && this.app.recorder.isRecording) {
-      this.app.recorder.renderCompositeFrame();
     }
   }
 }

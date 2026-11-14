@@ -129,7 +129,7 @@
   </button>
 
   <!-- Mobile Overlay -->
-  <div id="mobile-overlay" class="fixed inset-0 bg-black/20 z-30 hidden md:hidden transition-opacity"></div>
+  <div id="mobile-overlay" class="fixed inset-0 z-30 hidden md:hidden transition-opacity"></div>
 
   <!-- Glassmorphism Sidebar -->
   <div id="sidebar" class="fixed inset-x-0 bottom-0 max-h-[55dvh] rounded-t-2xl bg-slate-900 border-t border-white/10 md:inset-x-auto md:bottom-auto md:w-80 md:bg-slate-900/40 md:backdrop-blur-xl md:border md:rounded-2xl shadow-2xl flex flex-col md:max-h-[calc(100dvh-140px)] z-40 transform translate-y-full md:absolute md:top-6 md:left-6 md:translate-y-0 transition-transform duration-300">
@@ -226,26 +226,36 @@
       <section class="pt-4 border-t border-white/10">
         <h2 class="text-sm font-semibold text-purple-300 uppercase tracking-wider mb-3">Colors</h2>
 
-        <div class="mb-3">
+        <div class="mb-3" id="color-mode-row">
           <select id="color-mode-select" class="w-full bg-black/30 border border-white/10 rounded-lg py-1.5 px-3 text-sm focus:outline-none focus:border-purple-500">
             <option value="spectrum">Spectrum Cycle (Rainbow)</option>
             <option value="palette">Custom Palette</option>
           </select>
         </div>
 
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs text-slate-400">Primary (shapes)</span>
+        <div class="flex items-center justify-between mb-2" id="primary-color-row">
+          <span class="text-xs text-slate-400">Primary</span>
           <input type="color" id="primary-color-input" value="#ffffff" class="w-12 h-7 bg-transparent border border-white/10 rounded cursor-pointer">
         </div>
-        <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center justify-between mb-2" id="secondary-color-row">
           <span class="text-xs text-slate-400">Secondary (blend)</span>
           <input type="color" id="secondary-color-input" value="#c084fc" class="w-12 h-7 bg-transparent border border-white/10 rounded cursor-pointer">
         </div>
         <div class="flex items-center justify-between mb-1">
           <span class="text-xs text-slate-400">Background</span>
-          <input type="color" id="background-color-input" value="#0f172a" class="w-12 h-7 bg-transparent border border-white/10 rounded cursor-pointer">
+          <input type="color" id="background-color-input" value="#000000" class="w-12 h-7 bg-transparent border border-white/10 rounded cursor-pointer">
         </div>
-        <p class="text-[11px] text-slate-500 mt-2">Primary tints Wireframe/Solid shapes. Palette mode blends Primary ↔ Secondary for terrain & particles instead of the rainbow.</p>
+        <div class="flex items-center justify-between mt-2 mb-1">
+          <span class="text-xs text-slate-400">Background Image</span>
+          <div class="flex items-center gap-3">
+            <button id="background-image-clear-btn" class="hidden text-xs text-slate-400 hover:text-white underline">Remove</button>
+            <label class="cursor-pointer bg-white/10 hover:bg-white/20 border border-white/5 px-3 py-1 rounded-lg text-xs font-medium transition-colors">
+              Choose
+              <input type="file" id="background-image-input" accept="image/*" class="hidden">
+            </label>
+          </div>
+        </div>
+        <p id="holographic-color-hint" class="text-[11px] text-slate-500 mt-2">Holographic shapes make their own rainbow. To pick a shape color, set Material to Wireframe or Solid.</p>
       </section>
 
       <!-- Transform & Rotation -->
@@ -313,7 +323,7 @@
           </select>
         </div>
 
-        <label class="flex items-center justify-between mb-3 cursor-pointer">
+        <label class="flex items-center justify-between mb-3 cursor-pointer" id="smooth-surface-row">
           <span class="text-sm">Smooth Surface (Fill)</span>
           <div class="relative">
             <input type="checkbox" id="smooth-surface-toggle" class="sr-only peer">
@@ -362,7 +372,7 @@
           <input type="range" id="shape-count-slider" min="1" max="50" step="1" value="1">
         </div>
 
-        <div class="mb-3">
+        <div class="mb-3" id="layout-row">
           <label class="block text-xs text-slate-400 mb-1">Shape Layout</label>
           <select id="layout-select" class="w-full bg-black/30 border border-white/10 rounded-lg py-1.5 px-3 text-sm focus:outline-none focus:border-purple-500">
             <option value="Nested">Nested / Concentric</option>
@@ -430,7 +440,7 @@
           </div>
         </label>
 
-        <div class="mb-3">
+        <div class="mb-3" id="afterimage-damp-row">
           <label class="flex justify-between text-xs text-slate-400 mb-1">
             <span>Trail Length</span>
           </label>
@@ -476,7 +486,7 @@
       <!-- Audio Routing -->
       <section class="pt-4 border-t border-white/10">
         <h2 class="text-sm font-semibold text-purple-300 uppercase tracking-wider mb-1">Audio Routing</h2>
-        <p class="text-[11px] text-slate-500 mb-3">Pick which frequency band drives each parameter, and how hard.</p>
+        <p class="text-[11px] text-slate-500 mb-3">Pick which frequency band drives each parameter, and how hard. Only reacts while a track is playing.</p>
 
         <div class="mb-3">
           <div class="flex justify-between items-center mb-1">
@@ -498,7 +508,7 @@
           <input type="range" id="route-rotation-amount" min="0" max="2" step="0.05" value="1">
         </div>
 
-        <div class="mb-3">
+        <div class="mb-3" id="route-hue-row">
           <div class="flex justify-between items-center mb-1">
             <span class="text-xs text-slate-400">Hue / Color Shift</span>
             <select id="route-hue-band" class="bg-black/30 border border-white/10 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-purple-500">
@@ -508,7 +518,7 @@
           <input type="range" id="route-hue-amount" min="0" max="2" step="0.05" value="1">
         </div>
 
-        <div class="mb-3">
+        <div class="mb-3" id="route-glitch-row">
           <div class="flex justify-between items-center mb-1">
             <span class="text-xs text-slate-400">Glitch Trigger <span class="text-slate-600">(sensitivity)</span></span>
             <select id="route-glitch-band" class="bg-black/30 border border-white/10 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-purple-500">
@@ -518,7 +528,7 @@
           <input type="range" id="route-glitch-amount" min="0" max="2" step="0.05" value="1">
         </div>
 
-        <div class="mb-3">
+        <div class="mb-3" id="route-bloom-row">
           <div class="flex justify-between items-center mb-1">
             <span class="text-xs text-slate-400">Bloom Pulse</span>
             <select id="route-bloom-band" class="bg-black/30 border border-white/10 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-purple-500">
@@ -528,7 +538,7 @@
           <input type="range" id="route-bloom-amount" min="0" max="2" step="0.05" value="1">
         </div>
 
-        <div class="mb-3">
+        <div class="mb-3" id="route-kaleido-row">
           <div class="flex justify-between items-center mb-1">
             <span class="text-xs text-slate-400">Kaleidoscope Spin</span>
             <select id="route-kaleido-band" class="bg-black/30 border border-white/10 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-purple-500">

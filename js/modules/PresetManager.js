@@ -37,7 +37,7 @@ const DEFAULTS = {
   'route-scale-amount': 1, 'route-rotation-amount': 1, 'route-hue-amount': 1,
   'route-glitch-amount': 1, 'route-bloom-amount': 1, 'route-kaleido-amount': 1,
   'color-mode-select': 'spectrum',
-  'primary-color-input': '#ffffff', 'secondary-color-input': '#c084fc', 'background-color-input': '#0f172a',
+  'primary-color-input': '#ffffff', 'secondary-color-input': '#c084fc', 'background-color-input': '#000000',
 };
 
 const FACTORY_PRESETS = {

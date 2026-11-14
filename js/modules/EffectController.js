@@ -45,15 +45,13 @@ export class EffectController {
       this.rotationSpeed = this.baseRotationSpeed * (Math.sin(now * 0.0005) + 1.1) * 4 * audioSpeedMult;
     }
 
-    // 2. Hue Shader animation
-    if (postProcessor.huePass && postProcessor.huePass.enabled) {
+    // 2. Holographic material hue animation
+    if (meshManager && meshManager.sceneMode === 'Shapes' && meshManager.materialMode === 'Hue') {
       const time = now * 0.0002;
       // Modulate hue by the routed band (default: mids)
       const hueOffset = (routing ? routing.value('hueShift', audioData) : 0) * Math.PI;
       this.hueValue = Math.sin(time) + hueOffset;
-      if (postProcessor.huePass.uniforms['hue']) {
-        postProcessor.huePass.uniforms['hue'].value = this.hueValue;
-      }
+      meshManager.hueUniform.value = this.hueValue;
     }
 
     // (FilmPass advances its own time uniform each render; no manual increment needed)
