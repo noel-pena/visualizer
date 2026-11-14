@@ -17,6 +17,9 @@ export class EffectController {
 
     // Local hue state
     this.hueValue = 0;
+
+    // When the current random glitch burst should end (0 = none running)
+    this.randomGlitchEndTime = 0;
   }
 
   init() {
@@ -123,23 +126,25 @@ export class EffectController {
     }
 
     // 5. Random Glitches (Independent of audio)
+    if (this.randomGlitchEndTime && now >= this.randomGlitchEndTime) {
+      this.randomGlitchEndTime = 0;
+      // Only turn off if a pulse hasn't overridden it
+      if (now - this.lastBeatTime > this.glitchDuration) {
+        postProcessor.glitchPass.enabled = false;
+        if (postProcessor.rgbShiftPass?.uniforms?.amount) {
+          postProcessor.rgbShiftPass.uniforms['amount'].value = 0.0;
+        }
+      }
+    }
+
     if (this.isRandomGlitchEnabled && !postProcessor.glitchPass.enabled && Math.random() < 0.015) {
       postProcessor.glitchPass.enabled = true;
       if (postProcessor.rgbShiftPass?.uniforms?.amount) {
         postProcessor.rgbShiftPass.uniforms['amount'].value = 0.005 + Math.random() * 0.02;
       }
-
-      const randomDuration = 50 + Math.random() * 150;
-      setTimeout(() => {
-        const currentTime = Date.now();
-        // Only turn off if a pulse hasn't overridden it
-        if (currentTime - this.lastBeatTime > this.glitchDuration) {
-          postProcessor.glitchPass.enabled = false;
-          if (postProcessor.rgbShiftPass?.uniforms?.amount) {
-            postProcessor.rgbShiftPass.uniforms['amount'].value = 0.0;
-          }
-        }
-      }, randomDuration);
+      // Timed against `now` rather than a timer so offline exports, which run
+      // on a simulated clock, get bursts of the same length
+      this.randomGlitchEndTime = now + 50 + Math.random() * 150;
     }
 
     // 6. Auto Camera path
@@ -163,5 +168,17 @@ export class EffectController {
         }
       }
     }
+  }
+
+  // End any glitch in progress and forget beat timing. Used when switching
+  // between the live clock and the exporter's simulated clock.
+  resetTransientState() {
+    const postProcessor = this.app.postProcessor;
+    this.lastBeatTime = 0;
+    this.randomGlitchEndTime = 0;
+    if (!postProcessor?.glitchPass) return;
+    postProcessor.glitchPass.enabled = false;
+    postProcessor.rgbShiftPass.uniforms['amount'].value = 0.0;
+    postProcessor.filmPass.uniforms['intensity'].value = postProcessor.baseFilmIntensity;
   }
 }

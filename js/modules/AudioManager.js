@@ -15,6 +15,7 @@ export default class AudioManager {
 
         // Current track info
         this.trackName = "No track loaded";
+        this.file = null; // kept so the offline exporter can decode the full track
         this.duration = 0;
         this.currentTime = 0;
 
@@ -142,6 +143,7 @@ export default class AudioManager {
         const url = URL.createObjectURL(file);
         this.audioElement.src = url;
         this.trackName = file.name;
+        this.file = file;
         this.audioElement.load();
     }
 
@@ -168,12 +170,24 @@ export default class AudioManager {
         this.audioElement.currentTime = timeSeconds;
     }
 
-    update() {
+    update(now = Date.now()) {
         if (!this.isPlaying || !this.analyser) return;
-        
+
         // Get frequency data
         this.analyser.getByteFrequencyData(this.dataArray);
+        if (this.beatAnalyser) this.beatAnalyser.getByteFrequencyData(this.beatData);
 
+        this._processSpectrum(now);
+    }
+
+    // Offline export: same processing as update(), fed from decoded samples
+    // at a simulated time instead of from the live analysers
+    updateOffline(offlineAnalyser, timeSeconds, now) {
+        offlineAnalyser.analyse(timeSeconds, this.dataArray, this.beatData);
+        this._processSpectrum(now);
+    }
+
+    _processSpectrum(now) {
         // Calculate raw values
         const rawBass = this._calculateRawEnergy(0, 5);
         const rawMid = this._calculateRawEnergy(5, 40);
@@ -187,12 +201,36 @@ export default class AudioManager {
         this.smoothedAvg = (this.smoothedAvg * this.smoothingFactor) + (rawAvg * (1 - this.smoothingFactor));
 
         // Beat detection reads the fast-attack analyser (bins 0-5 = lows)
-        if (this.beatAnalyser) {
-            this.beatAnalyser.getByteFrequencyData(this.beatData);
+        if (this.beatData) {
             let sum = 0;
             for (let i = 0; i < 5; i++) sum += this.beatData[i];
-            this._detectBeat(sum / (5 * 255), Date.now());
+            this._detectBeat(sum / (5 * 255), now);
         }
+    }
+
+    getAudioData() {
+        return {
+            bass: this.smoothedBass,
+            mid: this.smoothedMid,
+            high: this.smoothedHigh,
+            avg: this.smoothedAvg
+        };
+    }
+
+    // Clear smoothing and beat history. The exporter runs on a simulated
+    // clock, so state from one clock must not leak into the other.
+    resetAnalysis() {
+        this.smoothedBass = this.smoothedMid = this.smoothedHigh = this.smoothedAvg = 0;
+        this.beat.history = [];
+        this.beat.intervals = [];
+        this.beat.lastBeatTime = 0;
+        this.beat.isBeat = false;
+    }
+
+    // Full decoded track for the offline exporter
+    async decodeFile() {
+        if (!this.file) throw new Error('No track loaded');
+        return this.audioContext.decodeAudioData(await this.file.arrayBuffer());
     }
 
     // Adaptive kick detection: a beat is an instant bass spike well above the

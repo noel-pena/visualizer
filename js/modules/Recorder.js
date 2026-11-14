@@ -7,6 +7,7 @@ export class Recorder {
     this.recordedChunks = [];
     this.isRecording = false;
     this.wakeLock = null;
+    this.wantsWakeLock = false; // true while a recording or export is running
 
     // UI hooks — set by UIController so the recorder never touches the DOM
     this.onStopCallback = null;
@@ -15,9 +16,9 @@ export class Recorder {
 
   init() {
     // The screen wake lock is dropped whenever the page is hidden; take it
-    // back if we return mid-recording
+    // back if we return mid-recording or mid-export
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && this.isRecording) this.acquireWakeLock();
+      if (!document.hidden && this.wantsWakeLock) this.acquireWakeLock();
     });
   }
 
@@ -130,16 +131,17 @@ export class Recorder {
     if (this.onStopCallback) this.onStopCallback();
   }
 
-  // Keep the screen on while recording — a phone that auto-locks suspends the
-  // page and ends the take. Unsupported browsers just skip this.
+  // Keep the screen on while recording or exporting — a phone that auto-locks
+  // suspends the page and ends the take. Unsupported browsers just skip this.
   async acquireWakeLock() {
+    this.wantsWakeLock = true;
     if (!navigator.wakeLock || this.wakeLock) return;
     try {
       const lock = await navigator.wakeLock.request('screen');
       lock.addEventListener('release', () => {
         if (this.wakeLock === lock) this.wakeLock = null;
       });
-      if (this.isRecording) this.wakeLock = lock;
+      if (this.wantsWakeLock) this.wakeLock = lock;
       else lock.release();
     } catch (e) {
       console.warn('Screen wake lock unavailable:', e);
@@ -147,6 +149,7 @@ export class Recorder {
   }
 
   releaseWakeLock() {
+    this.wantsWakeLock = false;
     if (this.wakeLock) {
       this.wakeLock.release().catch(() => {});
       this.wakeLock = null;

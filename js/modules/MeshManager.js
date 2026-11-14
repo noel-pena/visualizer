@@ -308,7 +308,7 @@ export class MeshManager {
     this.meshGroup.add(this.particleSystem);
   }
 
-  update(rotationSpeed, audioData) {
+  update(rotationSpeed, audioData, now = Date.now()) {
     if (!this.meshGroup) return;
 
     // Routed band energies (defaults preserve the classic bass/high/mid mapping)
@@ -390,10 +390,10 @@ export class MeshManager {
             // Color shift follows the routed hue band — spectrum or palette blend
             const palette = this.app.colorPalette;
             if (palette?.isPalette()) {
-                const t = 0.5 + 0.5 * Math.sin(Date.now() * 0.0005);
+                const t = 0.5 + 0.5 * Math.sin(now * 0.0005);
                 palette.mix(Math.min(1, t + hueV), this.particleSystem.material.color);
             } else {
-                this.particleSystem.material.color.setHSL((Date.now() * 0.0001 + hueV) % 1, 0.8, 0.6);
+                this.particleSystem.material.color.setHSL((now * 0.0001 + hueV) % 1, 0.8, 0.6);
             }
 
             for (let i = 0; i < count; i++) {

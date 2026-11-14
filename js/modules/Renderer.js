@@ -15,6 +15,9 @@ export class Renderer {
     this.currentHeight = window.innerHeight;
 
     this.hiddenRenderTimer = null;
+
+    // The offline exporter drives frames itself while this is set
+    this.isExporting = false;
   }
 
   init() {
@@ -136,19 +139,26 @@ export class Renderer {
 
     this.updateCameraOffset();
 
-    // Set the internal render size (number of pixels)
-    // We set pixel ratio to 1 because we are manually defining the exact pixel count.
-    this.renderer.setPixelRatio(1); 
-    this.renderer.setSize(renderW, renderH, false); // false means don't update CSS style
+    // Set the internal render size (number of pixels). Skipped when only the
+    // on-screen size changed (rotating the phone, opening the controls):
+    // resizing clears the canvas and every effect buffer, which would put a
+    // blank frame into a recording or export.
+    const canvas = this.renderer.domElement;
+    if (canvas.width !== renderW || canvas.height !== renderH || !this.hasSizedBuffers) {
+      this.hasSizedBuffers = true;
+
+      // We set pixel ratio to 1 because we are manually defining the exact pixel count.
+      this.renderer.setPixelRatio(1);
+      this.renderer.setSize(renderW, renderH, false); // false means don't update CSS style
+
+      if (this.app.postProcessor) {
+        this.app.postProcessor.setSize(renderW, renderH, renderW, renderH);
+      }
+    }
 
     // Set the CSS display size
-    const canvas = this.renderer.domElement;
     canvas.style.width = `${cssW}px`;
     canvas.style.height = `${cssH}px`;
-    
-    if (this.app.postProcessor) {
-      this.app.postProcessor.setSize(renderW, renderH, renderW, renderH);
-    }
 
     // A background image is cropped to the frame's aspect ratio
     this.app.colorPalette?.fitBackgroundImage();
@@ -176,19 +186,27 @@ export class Renderer {
   }
 
   renderFrame() {
+    if (this.isExporting) return;
+
     const now = Date.now();
     let audioData = null;
 
     if (this.app.audioManager && this.app.audioManager.isPlaying) {
-      this.app.audioManager.update();
-      audioData = {
-        bass: this.app.audioManager.getBassEnergy(),
-        mid: this.app.audioManager.getMidEnergy(),
-        high: this.app.audioManager.getHighEnergy(),
-        avg: this.app.audioManager.getAverageEnergy()
-      };
+      this.app.audioManager.update(now);
+      audioData = this.app.audioManager.getAudioData();
     }
 
+    this.step(now, audioData);
+
+    // 3. Render post-processing passes
+    if (this.app.postProcessor) {
+      this.app.postProcessor.render(now);
+    }
+  }
+
+  // Advance the scene by one frame of motion. Shared by the live loop and the
+  // offline exporter, which calls it with a simulated clock.
+  step(now, audioData) {
     // 1. Update effects (BPM pulse, auto camera, auto rotation)
     if (this.app.effectController) {
       this.app.effectController.update(now, audioData);
@@ -196,12 +214,7 @@ export class Renderer {
 
     // 2. Update mesh rotations
     if (this.app.meshManager) {
-      this.app.meshManager.update(this.app.effectController?.rotationSpeed || 0.005, audioData);
-    }
-
-    // 3. Render post-processing passes
-    if (this.app.postProcessor) {
-      this.app.postProcessor.render(now);
+      this.app.meshManager.update(this.app.effectController?.rotationSpeed || 0.005, audioData, now);
     }
   }
 }

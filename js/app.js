@@ -4,6 +4,7 @@ import { PostProcessor } from './modules/PostProcessor.js';
 import { MeshManager } from './modules/MeshManager.js';
 import { EffectController } from './modules/EffectController.js';
 import { Recorder } from './modules/Recorder.js';
+import { Exporter } from './modules/Exporter.js';
 import { UIController } from './modules/UIController.js';
 import { PresetManager } from './modules/PresetManager.js';
 import { AudioRouting } from './modules/AudioRouting.js';
@@ -17,6 +18,7 @@ class GlitchVisualizer {
     this.meshManager = new MeshManager(this);
     this.effectController = new EffectController(this);
     this.recorder = new Recorder(this);
+    this.exporter = new Exporter(this);
     this.audioManager = new AudioManager();
     this.audioRouting = new AudioRouting(this);
     this.colorPalette = new ColorPalette(this);

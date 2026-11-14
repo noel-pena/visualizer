@@ -1,3 +1,5 @@
+import { Exporter, ExportError } from './Exporter.js';
+
 export class UIController {
   constructor(app) {
     this.app = app;
@@ -511,6 +513,9 @@ export class UIController {
       });
     }
 
+    // --- Offline export (frame-by-frame render of the track) ---
+    this.setupExport();
+
     // --- Snapshot (PNG still export) ---
     const saveImageButton = document.getElementById('save-image-button');
     if (saveImageButton && recorder) {
@@ -557,5 +562,89 @@ export class UIController {
 
       exportDismissBtn.addEventListener('click', hideToast);
     }
+  }
+
+  setupExport() {
+    const { exporter, recorder, audioManager } = this.app;
+    const exportButton = document.getElementById('export-button');
+    const modal = document.getElementById('export-modal');
+    if (!exportButton || !modal || !exporter || !Exporter.isSupported()) return;
+
+    exportButton.classList.remove('hidden');
+
+    const panes = {
+      setup: document.getElementById('export-setup'),
+      progress: document.getElementById('export-progress'),
+      message: document.getElementById('export-message')
+    };
+    const lengthSelect = document.getElementById('export-length-select');
+    const setupHint = document.getElementById('export-setup-hint');
+    const progressText = document.getElementById('export-progress-text');
+    const progressBar = document.getElementById('export-progress-bar');
+    const messageText = document.getElementById('export-message-text');
+
+    const formatTime = (secs) => `${Math.floor(secs / 60)}:${Math.floor(secs % 60).toString().padStart(2, '0')}`;
+
+    const show = (name) => {
+      Object.entries(panes).forEach(([key, pane]) => pane.classList.toggle('hidden', key !== name));
+      modal.classList.remove('hidden');
+    };
+    const close = () => modal.classList.add('hidden');
+    const showMessage = (text) => {
+      messageText.textContent = text;
+      show('message');
+    };
+
+    // Clips start at the playhead; the full track always starts from the top
+    const getRange = () => {
+      if (lengthSelect.value === 'full') return { startTime: 0, duration: null };
+      const position = audioManager.audioElement.currentTime || 0;
+      return { startTime: position, duration: parseFloat(lengthSelect.value) };
+    };
+    const updateHint = () => {
+      const canvas = this.app.rendererManager.renderer.domElement;
+      const { startTime, duration } = getRange();
+      const end = Math.min(audioManager.duration, startTime + (duration ?? Infinity));
+      setupHint.textContent = `${formatTime(startTime)} – ${formatTime(end)} · ${canvas.width}×${canvas.height}`
+        + (duration ? ' · starts at the playhead' : '');
+    };
+    lengthSelect.addEventListener('change', updateHint);
+
+    exportButton.addEventListener('click', () => {
+      if (recorder.isRecording) return;
+      if (!audioManager.isLoaded) {
+        showMessage('Load a track first — the export renders your visuals to the song.');
+        return;
+      }
+      audioManager.pause();
+      updateHint();
+      show('setup');
+    });
+
+    document.getElementById('export-setup-cancel-btn').addEventListener('click', close);
+    document.getElementById('export-message-close-btn').addEventListener('click', close);
+    document.getElementById('export-cancel-btn').addEventListener('click', () => exporter.cancel());
+
+    document.getElementById('export-start-btn').addEventListener('click', async () => {
+      const onProgress = (fraction) => {
+        const percent = Math.round(fraction * 100);
+        progressText.textContent = `${percent}%`;
+        progressBar.style.width = `${percent}%`;
+      };
+      onProgress(0);
+      show('progress');
+
+      try {
+        const result = await exporter.export({ ...getRange(), onProgress });
+        close();
+        // Phones get the "Save Video" toast, desktops a download
+        if (result) recorder.deliverFile(result.blob, result.filename);
+      } catch (e) {
+        console.error('Export failed:', e);
+        showMessage(e instanceof ExportError
+          ? e.message
+          : 'The export was interrupted. Keep the app open and on screen while it renders, then try again.');
+      }
+    });
   }
 }

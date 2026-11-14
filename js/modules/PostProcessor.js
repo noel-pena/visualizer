@@ -190,13 +190,15 @@ export class PostProcessor {
     }
   }
 
-  render(now) {
+  // `delta` (seconds) is only passed by the offline exporter; live rendering
+  // lets the composer measure real elapsed time
+  render(now, delta) {
     if (this.composer) {
       // Skip full-screen passes that would be a no-op this frame
       this.rgbShiftPass.enabled = this.rgbShiftPass.uniforms['amount'].value > 0;
       this.filmPass.enabled = this.filmPass.uniforms['intensity'].value > 0;
 
-      this.composer.render();
+      this.composer.render(delta);
     }
   }
 }
