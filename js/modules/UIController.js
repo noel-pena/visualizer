@@ -595,15 +595,21 @@ export class UIController {
       show('message');
     };
 
-    // Clips start at the playhead; the full track always starts from the top
+    // Clips start at the playhead; the full track always starts from the top.
+    // Loops are silent and don't use the track at all.
     const getRange = () => {
+      if (lengthSelect.value.startsWith('loop:')) return { loop: true, duration: parseFloat(lengthSelect.value.slice(5)) };
       if (lengthSelect.value === 'full') return { startTime: 0, duration: null };
       const position = audioManager.audioElement.currentTime || 0;
       return { startTime: position, duration: parseFloat(lengthSelect.value) };
     };
     const updateHint = () => {
       const canvas = this.app.rendererManager.renderer.domElement;
-      const { startTime, duration } = getRange();
+      const { startTime, duration, loop } = getRange();
+      if (loop) {
+        setupHint.textContent = `Repeats seamlessly · no audio · ${canvas.width}×${canvas.height}`;
+        return;
+      }
       const end = Math.min(audioManager.duration, startTime + (duration ?? Infinity));
       setupHint.textContent = `${formatTime(startTime)} – ${formatTime(end)} · ${canvas.width}×${canvas.height}`
         + (duration ? ' · starts at the playhead' : '');
@@ -612,11 +618,13 @@ export class UIController {
 
     exportButton.addEventListener('click', () => {
       if (recorder.isRecording) return;
-      if (!audioManager.isLoaded) {
-        showMessage('Load a track first — the export renders your visuals to the song.');
-        return;
-      }
-      audioManager.pause();
+      // Without a track only the silent loops can be exported
+      const hasTrack = audioManager.isLoaded;
+      [...lengthSelect.options].forEach((option) => {
+        option.disabled = !hasTrack && !option.value.startsWith('loop:');
+      });
+      if (lengthSelect.selectedOptions[0].disabled) lengthSelect.value = 'loop:8';
+      if (hasTrack) audioManager.pause();
       updateHint();
       show('setup');
     });

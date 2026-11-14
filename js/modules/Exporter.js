@@ -19,6 +19,10 @@ const SIM_RATE = 60;
 // already warm when a clip starts mid-song
 const PREROLL_TICKS = SIM_RATE;
 
+// Seamless loops dissolve their last second into the moments just before
+// their first frame, so the end flows back into the start
+const LOOP_FADE_SECONDS = 1;
+
 // An error whose message is safe to show to the user as-is
 export class ExportError extends Error {}
 
@@ -94,13 +98,15 @@ export class Exporter {
   }
 
   // Render `duration` seconds of the loaded track starting at `startTime`
-  // (both in seconds; duration null = to the end). Resolves with
-  // { blob, filename }, or null if cancelled. onProgress gets 0..1.
-  async export({ startTime = 0, duration = null, onProgress = null } = {}) {
+  // (both in seconds; duration null = to the end). With `loop`, render a
+  // silent, seamlessly repeating clip of `duration` seconds instead — no track
+  // needed. Resolves with { blob, filename }, or null if cancelled.
+  // onProgress gets 0..1.
+  async export({ startTime = 0, duration = null, loop = false, onProgress = null } = {}) {
     if (this.isExporting) return null;
 
     const { rendererManager, audioManager, effectController, postProcessor, recorder } = this.app;
-    if (!audioManager?.file) throw new ExportError('Load a track first.');
+    if (!loop && !audioManager?.file) throw new ExportError('Load a track first.');
 
     const canvas = rendererManager.renderer.domElement;
     const { width, height } = canvas;
@@ -126,6 +132,8 @@ export class Exporter {
     let output = null;
 
     try {
+      if (loop) return await this.renderLoop({ duration, fps, videoBitrate, onProgress, setOutput: (o) => { output = o; } });
+
       const audioBuffer = await audioManager.decodeFile();
       const sampleRate = audioBuffer.sampleRate;
       const channelCount = audioBuffer.numberOfChannels;
@@ -231,5 +239,102 @@ export class Exporter {
       rendererManager.isExporting = false;
       this.isExporting = false;
     }
+  }
+
+  // Silent seamless loop. Frames from just before the loop's start are kept
+  // (compressed) and dissolved over its final second, so the last frame leads
+  // straight back into the first. Runs inside export()'s setup and teardown.
+  async renderLoop({ duration, fps, videoBitrate, onProgress, setOutput }) {
+    const { rendererManager, effectController, postProcessor } = this.app;
+    const canvas = rendererManager.renderer.domElement;
+    const ticksPerFrame = SIM_RATE / fps;
+    const tickMs = 1000 / SIM_RATE;
+
+    const totalFrames = Math.round(duration * fps);
+    const fadeFrames = Math.min(Math.round(LOOP_FADE_SECONDS * fps), Math.floor(totalFrames / 2));
+
+    // The dissolve is composited on a 2D canvas, which is what gets encoded
+    const composite = document.createElement('canvas');
+    composite.width = canvas.width;
+    composite.height = canvas.height;
+    const ctx = composite.getContext('2d');
+
+    const sink = new BlobSink();
+    const format = new Mp4OutputFormat({ fastStart: false });
+    const output = new Output({
+      format,
+      target: new StreamTarget(new WritableStream({
+        write: (chunk) => sink.write(chunk.data, chunk.position)
+      }), { chunked: true, chunkSize: 8 * 1024 * 1024 })
+    });
+    setOutput(output);
+
+    const videoSource = new CanvasSource(composite, { codec: 'avc', bitrate: videoBitrate, keyFrameInterval: 2 });
+    output.addVideoTrack(videoSource, { frameRate: fps });
+    await output.start();
+
+    const afterimageDamp = postProcessor.afterimagePass.uniforms['damp'];
+    afterimageDamp.value = Math.pow(afterimageDamp.value, ticksPerFrame);
+
+    const baseNow = Date.now();
+    effectController.resetTransientState();
+
+    // Frame numbers run from -fadeFrames (the lead-in) to totalFrames - 1
+    const renderFrame = (frame) => {
+      for (let k = 0; k < ticksPerFrame; k++) {
+        rendererManager.step(baseNow + (frame * ticksPerFrame + k) * tickMs, null);
+      }
+      postProcessor.render(baseNow + frame * ticksPerFrame * tickMs, 1 / fps);
+    };
+
+    const totalWork = fadeFrames + totalFrames;
+    let lastYield = performance.now();
+    const checkpoint = async (done) => {
+      if (this.cancelRequested) {
+        await output.cancel();
+        return false;
+      }
+      if (performance.now() - lastYield > 100) {
+        if (onProgress) onProgress(done / totalWork);
+        await yieldToBrowser();
+        lastYield = performance.now();
+      }
+      return true;
+    };
+
+    // Lead-in frames, stored as high-quality JPEGs — raw 4K frames would not
+    // fit in a phone's memory
+    const leadIn = [];
+    for (let i = 0; i < fadeFrames; i++) {
+      if (!(await checkpoint(i))) return null;
+      renderFrame(i - fadeFrames);
+      leadIn.push(await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.95)));
+    }
+
+    for (let frame = 0; frame < totalFrames; frame++) {
+      if (!(await checkpoint(fadeFrames + frame))) return null;
+      renderFrame(frame);
+
+      ctx.globalAlpha = 1;
+      ctx.drawImage(canvas, 0, 0);
+
+      const fadeIndex = frame - (totalFrames - fadeFrames);
+      if (fadeIndex >= 0) {
+        const bitmap = await createImageBitmap(leadIn[fadeIndex]);
+        ctx.globalAlpha = (fadeIndex + 1) / (fadeFrames + 1);
+        ctx.drawImage(bitmap, 0, 0);
+        bitmap.close();
+      }
+
+      await videoSource.add(frame / fps, 1 / fps);
+    }
+
+    await output.finalize();
+    if (onProgress) onProgress(1);
+
+    return {
+      blob: sink.toBlob(format.mimeType),
+      filename: `glitch-visualizer-loop${format.fileExtension}`
+    };
   }
 }
