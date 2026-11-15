@@ -1,0 +1,10 @@
+/*!
+ * Live Photo Maker for the web - turns a video into an iPhone Live Photo (JPEG + MOV)
+ * right in the browser. Nothing is uploaded. MIT License.
+ *
+ *   <script src="livephoto.js"></script>
+ *   const { photo, video } = await LivePhotoMaker.makeLivePhoto(file, { stillTime: 1.5 });
+ *
+ * The video stream is copied bit-for-bit (H.264 or HEVC in an MP4/MOV container). The still
+ * is the frame at stillTime (or a JPEG you pass in). Same file format as livephoto.py.
+ */
