@@ -9,6 +9,7 @@ import {
   canEncodeAudio
 } from 'mediabunny';
 import { OfflineAnalyser } from './OfflineAnalyser.js';
+import LivePhotoMaker from '../vendor/livephoto.js';
 
 // Scene updates per second of video. The preview advances motion once per
 // display frame (60 Hz), so the export simulates at the same rate to move
@@ -100,13 +101,14 @@ export class Exporter {
   // Render `duration` seconds of the loaded track starting at `startTime`
   // (both in seconds; duration null = to the end). With `loop`, render a
   // silent, seamlessly repeating clip of `duration` seconds instead — no track
-  // needed. Resolves with { blob, filename }, or null if cancelled.
-  // onProgress gets 0..1.
-  async export({ startTime = 0, duration = null, loop = false, onProgress = null } = {}) {
+  // needed. With `livePhoto`, render a short silent clip and package it as an
+  // iOS Live Photo (a paired JPEG + MOV). Resolves with
+  // { files: [{ blob, filename }] }, or null if cancelled. onProgress gets 0..1.
+  async export({ startTime = 0, duration = null, loop = false, livePhoto = false, onProgress = null } = {}) {
     if (this.isExporting) return null;
 
     const { rendererManager, audioManager, effectController, postProcessor, recorder } = this.app;
-    if (!loop && !audioManager?.file) throw new ExportError('Load a track first.');
+    if (!loop && !livePhoto && !audioManager?.file) throw new ExportError('Load a track first.');
 
     const canvas = rendererManager.renderer.domElement;
     const { width, height } = canvas;
@@ -132,7 +134,26 @@ export class Exporter {
     let output = null;
 
     try {
-      if (loop) return await this.renderLoop({ duration, fps, videoBitrate, onProgress, setOutput: (o) => { output = o; } });
+      if (loop || livePhoto) {
+        const clip = await this.renderLoop({
+          duration, fps, videoBitrate, onProgress,
+          seamless: loop,
+          wantStill: livePhoto,
+          setOutput: (o) => { output = o; }
+        });
+        if (!clip) return null;
+        if (!livePhoto) return { files: [{ blob: clip.blob, filename: clip.filename }] };
+
+        // Photos pairs the two files through a shared identifier written into
+        // both; the still is the frame the Lock Screen shows at rest
+        const live = await LivePhotoMaker.makeLivePhoto(clip.blob, { stillTime: clip.stillTime, photo: clip.still });
+        return {
+          files: [
+            { blob: live.photo, filename: 'glitch-visualizer-live.JPG' },
+            { blob: live.video, filename: 'glitch-visualizer-live.MOV' }
+          ]
+        };
+      }
 
       const audioBuffer = await audioManager.decodeFile();
       const sampleRate = audioBuffer.sampleRate;
@@ -225,8 +246,7 @@ export class Exporter {
       if (onProgress) onProgress(1);
 
       return {
-        blob: sink.toBlob(format.mimeType),
-        filename: `glitch-visualizer-export${format.fileExtension}`
+        files: [{ blob: sink.toBlob(format.mimeType), filename: `glitch-visualizer-export${format.fileExtension}` }]
       };
     } catch (e) {
       if (output && output.state === 'started') await output.cancel().catch(() => {});
@@ -241,17 +261,20 @@ export class Exporter {
     }
   }
 
-  // Silent seamless loop. Frames from just before the loop's start are kept
-  // (compressed) and dissolved over its final second, so the last frame leads
-  // straight back into the first. Runs inside export()'s setup and teardown.
-  async renderLoop({ duration, fps, videoBitrate, onProgress, setOutput }) {
+  // Silent clip without a track. When `seamless`, frames from just before the
+  // start are kept (compressed) and dissolved over the final second, so the
+  // last frame leads straight back into the first. `wantStill` also returns
+  // the middle frame as a JPEG. Runs inside export()'s setup and teardown.
+  async renderLoop({ duration, fps, videoBitrate, onProgress, setOutput, seamless = true, wantStill = false }) {
     const { rendererManager, effectController, postProcessor } = this.app;
     const canvas = rendererManager.renderer.domElement;
     const ticksPerFrame = SIM_RATE / fps;
     const tickMs = 1000 / SIM_RATE;
 
     const totalFrames = Math.round(duration * fps);
-    const fadeFrames = Math.min(Math.round(LOOP_FADE_SECONDS * fps), Math.floor(totalFrames / 2));
+    const fadeFrames = seamless ? Math.min(Math.round(LOOP_FADE_SECONDS * fps), Math.floor(totalFrames / 2)) : 0;
+    const stillFrame = Math.floor(totalFrames / 2);
+    let still = null;
 
     // The dissolve is composited on a 2D canvas, which is what gets encoded
     const composite = document.createElement('canvas');
@@ -319,11 +342,15 @@ export class Exporter {
       ctx.drawImage(canvas, 0, 0);
 
       const fadeIndex = frame - (totalFrames - fadeFrames);
-      if (fadeIndex >= 0) {
+      if (fadeFrames > 0 && fadeIndex >= 0) {
         const bitmap = await createImageBitmap(leadIn[fadeIndex]);
         ctx.globalAlpha = (fadeIndex + 1) / (fadeFrames + 1);
         ctx.drawImage(bitmap, 0, 0);
         bitmap.close();
+      }
+
+      if (wantStill && frame === stillFrame) {
+        still = await new Promise((resolve) => composite.toBlob(resolve, 'image/jpeg', 1));
       }
 
       await videoSource.add(frame / fps, 1 / fps);
@@ -334,7 +361,9 @@ export class Exporter {
 
     return {
       blob: sink.toBlob(format.mimeType),
-      filename: `glitch-visualizer-loop${format.fileExtension}`
+      filename: `glitch-visualizer-loop${format.fileExtension}`,
+      still,
+      stillTime: stillFrame / fps
     };
   }
 }

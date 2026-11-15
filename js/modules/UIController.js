@@ -58,27 +58,6 @@ export class UIController {
   }
 
   setupSidebar() {
-    const header = document.getElementById('sidebar-header');
-    const content = document.getElementById('sidebar-content');
-    const icon = document.getElementById('sidebar-icon');
-
-    // Desktop collapse
-    if (header && content && icon) {
-      header.addEventListener('click', () => {
-        // Only trigger desktop collapse if we are not on mobile (sidebar is relatively positioned)
-        if (window.innerWidth >= 768) {
-          const isCollapsed = content.style.display === 'none';
-          if (isCollapsed) {
-            content.style.display = 'block';
-            icon.style.transform = 'rotate(0deg)';
-          } else {
-            content.style.display = 'none';
-            icon.style.transform = 'rotate(-90deg)';
-          }
-        }
-      });
-    }
-
     // Mobile menu toggle
     const mobileBtn = document.getElementById('mobile-menu-btn');
     const closeBtn = document.getElementById('mobile-close-btn');
@@ -455,12 +434,12 @@ export class UIController {
       audioManager.beatCallbacks.push((strength, bpm) => {
         if (bpmDisplay && bpm > 0) bpmDisplay.textContent = `≈${bpm} BPM`;
         if (beatDot) {
-          beatDot.classList.remove('bg-purple-500/30');
-          beatDot.classList.add('bg-purple-400');
+          beatDot.classList.remove('bg-lr-accent/30');
+          beatDot.classList.add('bg-lr-accent');
           clearTimeout(dotTimeout);
           dotTimeout = setTimeout(() => {
-            beatDot.classList.add('bg-purple-500/30');
-            beatDot.classList.remove('bg-purple-400');
+            beatDot.classList.add('bg-lr-accent/30');
+            beatDot.classList.remove('bg-lr-accent');
           }, 120);
         }
       });
@@ -529,32 +508,33 @@ export class UIController {
     const exportDismissBtn = document.getElementById('export-dismiss-btn');
 
     if (exportToast && recorder) {
-      let pendingFile = null;
+      let pendingFiles = null;
 
       const hideToast = () => {
-        pendingFile = null;
+        pendingFiles = null;
         exportToast.classList.add('hidden');
       };
 
-      recorder.onShareReady = (file) => {
-        pendingFile = file;
-        const isVideo = file.type.startsWith('video/');
-        exportToastText.textContent = isVideo ? 'Your video is ready' : 'Your snapshot is ready';
-        exportShareBtn.textContent = isVideo ? 'Save Video' : 'Save Image';
+      recorder.onShareReady = (files) => {
+        pendingFiles = files;
+        // A photo + video pair is a Live Photo
+        const kind = files.length > 1 ? 'Live Photo' : files[0].type.startsWith('video/') ? 'video' : 'snapshot';
+        exportToastText.textContent = `Your ${kind} is ready`;
+        exportShareBtn.textContent = { 'Live Photo': 'Save', video: 'Save Video', snapshot: 'Save Image' }[kind];
         exportToast.classList.remove('hidden');
       };
 
       exportShareBtn.addEventListener('click', async () => {
-        if (!pendingFile) return;
-        const file = pendingFile;
+        if (!pendingFiles) return;
+        const files = pendingFiles;
         try {
-          await navigator.share({ files: [file] });
+          await navigator.share({ files });
           hideToast();
         } catch (e) {
           // AbortError = user closed the sheet; keep the toast so they can retry
           if (e.name !== 'AbortError') {
             console.error('Share failed, falling back to download:', e);
-            recorder.downloadDataURL(URL.createObjectURL(file), file.name);
+            files.forEach((file) => recorder.downloadDataURL(URL.createObjectURL(file), file.name));
             hideToast();
           }
         }
@@ -599,13 +579,18 @@ export class UIController {
     // Loops are silent and don't use the track at all.
     const getRange = () => {
       if (lengthSelect.value.startsWith('loop:')) return { loop: true, duration: parseFloat(lengthSelect.value.slice(5)) };
+      if (lengthSelect.value === 'live') return { livePhoto: true, duration: 3 };
       if (lengthSelect.value === 'full') return { startTime: 0, duration: null };
       const position = audioManager.audioElement.currentTime || 0;
       return { startTime: position, duration: parseFloat(lengthSelect.value) };
     };
     const updateHint = () => {
       const canvas = this.app.rendererManager.renderer.domElement;
-      const { startTime, duration, loop } = getRange();
+      const { startTime, duration, loop, livePhoto } = getRange();
+      if (livePhoto) {
+        setupHint.textContent = `Photo + video pair for the iPhone Lock Screen · ${canvas.width}×${canvas.height}`;
+        return;
+      }
       if (loop) {
         setupHint.textContent = `Repeats seamlessly · no audio · ${canvas.width}×${canvas.height}`;
         return;
@@ -618,10 +603,10 @@ export class UIController {
 
     exportButton.addEventListener('click', () => {
       if (recorder.isRecording) return;
-      // Without a track only the silent loops can be exported
+      // Without a track only the silent formats can be exported
       const hasTrack = audioManager.isLoaded;
       [...lengthSelect.options].forEach((option) => {
-        option.disabled = !hasTrack && !option.value.startsWith('loop:');
+        option.disabled = !hasTrack && !option.value.startsWith('loop:') && option.value !== 'live';
       });
       if (lengthSelect.selectedOptions[0].disabled) lengthSelect.value = 'loop:8';
       if (hasTrack) audioManager.pause();
@@ -646,7 +631,7 @@ export class UIController {
         const result = await exporter.export({ ...getRange(), onProgress });
         close();
         // Phones get the "Save Video" toast, desktops a download
-        if (result) recorder.deliverFile(result.blob, result.filename);
+        if (result) recorder.deliverFiles(result.files);
       } catch (e) {
         console.error('Export failed:', e);
         showMessage(e instanceof ExportError

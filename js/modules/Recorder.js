@@ -11,7 +11,7 @@ export class Recorder {
 
     // UI hooks — set by UIController so the recorder never touches the DOM
     this.onStopCallback = null;
-    this.onShareReady = null; // (file) => {} — phone exports go through the share sheet
+    this.onShareReady = null; // (files) => {} — phone exports go through the share sheet
   }
 
   init() {
@@ -167,15 +167,20 @@ export class Recorder {
   // sheet offers "Save Video/Image" straight to Photos instead. navigator.share
   // needs a fresh tap, so the UI shows a save button rather than sharing here.
   deliverFile(blob, filename) {
-    const file = new File([blob], filename, { type: blob.type });
+    this.deliverFiles([{ blob, filename }]);
+  }
+
+  // Several files at once are saved together (a Live Photo is a photo + video pair)
+  deliverFiles(items) {
+    const files = items.map(({ blob, filename }) => new File([blob], filename, { type: blob.type }));
     const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
 
-    if (isTouchDevice && this.onShareReady && navigator.canShare?.({ files: [file] })) {
-      this.onShareReady(file);
+    if (isTouchDevice && this.onShareReady && navigator.canShare?.({ files })) {
+      this.onShareReady(files);
       return;
     }
 
-    this.downloadDataURL(URL.createObjectURL(blob), filename);
+    files.forEach((file) => this.downloadDataURL(URL.createObjectURL(file), file.name));
   }
 
   downloadDataURL(dataURL, filename) {
