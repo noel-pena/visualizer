@@ -9,7 +9,7 @@ import {
   canEncodeAudio
 } from 'mediabunny';
 import { OfflineAnalyser } from './OfflineAnalyser.js';
-import LivePhotoMaker from '../vendor/livephoto.js';
+import { packageLivePhoto } from './LivePhotoPackager.js';
 
 // Scene updates per second of video. The preview advances motion once per
 // display frame (60 Hz), so the export simulates at the same rate to move
@@ -23,6 +23,11 @@ const PREROLL_TICKS = SIM_RATE;
 // Seamless loops dissolve their last second into the moments just before
 // their first frame, so the end flows back into the start
 const LOOP_FADE_SECONDS = 1;
+
+// The iPhone Lock Screen only animates a Live Photo whose movie resembles the
+// camera's: HEVC, 30 FPS, no taller or wider than 1920 px
+const LIVE_PHOTO_FPS = 30;
+const LIVE_PHOTO_MAX_SIDE = 1920;
 
 // An error whose message is safe to show to the user as-is
 export class ExportError extends Error {}
@@ -113,16 +118,27 @@ export class Exporter {
     if (!loop && !livePhoto && !audioManager?.file) throw new ExportError('Load a track first.');
 
     const canvas = rendererManager.renderer.domElement;
-    const { width, height } = canvas;
-    const fps = window.matchMedia('(pointer: coarse)').matches ? 30 : 60;
+    let { width, height } = canvas;
+    let fps = window.matchMedia('(pointer: coarse)').matches ? 30 : 60;
+    let codec = 'avc';
+    if (livePhoto) {
+      // The still keeps the canvas's full size; only the movie is scaled down
+      const scale = Math.min(1, LIVE_PHOTO_MAX_SIDE / Math.max(width, height));
+      width = Math.round((width * scale) / 2) * 2;
+      height = Math.round((height * scale) / 2) * 2;
+      fps = LIVE_PHOTO_FPS;
+      codec = 'hevc';
+    }
     const ticksPerFrame = SIM_RATE / fps;
     const tickMs = 1000 / SIM_RATE;
 
     // ~6 Mbps at 1080p30, ~12 at 1080p60, capped for 4K
     const videoBitrate = Math.round(Math.min(40_000_000, Math.max(4_000_000, width * height * fps * 0.1)));
 
-    if (!(await canEncodeVideo('avc', { width, height, bitrate: videoBitrate }))) {
-      throw new ExportError(`This device can't encode ${width}×${height} video. Try a lower quality.`);
+    if (!(await canEncodeVideo(codec, { width, height, bitrate: videoBitrate }))) {
+      throw new ExportError(livePhoto
+        ? "This browser can't encode HEVC video, which the iPhone Lock Screen requires. Try Safari, or Chrome on a recent Mac."
+        : `This device can't encode ${width}×${height} video. Try a lower quality.`);
     }
 
     this.isExporting = true;
@@ -138,7 +154,10 @@ export class Exporter {
     try {
       if (loop || livePhoto) {
         const clip = await this.renderLoop({
-          duration, fps, videoBitrate, onProgress,
+          duration, fps, videoBitrate, onProgress, codec,
+          frameSize: { width, height },
+          // The Lock Screen wants a key frame every second
+          keyFrameInterval: livePhoto ? 1 : 2,
           style: loopStyle,
           wantStill: livePhoto,
           setOutput: (o) => { output = o; }
@@ -148,7 +167,13 @@ export class Exporter {
 
         // Photos pairs the two files through a shared identifier written into
         // both; the still is the frame the Lock Screen shows at rest
-        const live = await LivePhotoMaker.makeLivePhoto(clip.blob, { stillTime: clip.stillTime, photo: clip.still });
+        const live = await packageLivePhoto({
+          video: clip.blob,
+          still: clip.still,
+          frameCount: clip.frameCount,
+          fps,
+          stillTime: clip.stillTime
+        });
         return {
           files: [
             { blob: live.photo, filename: 'glitch-visualizer-live.JPG' },
@@ -269,7 +294,7 @@ export class Exporter {
   // the first. 'bounce': the first half is rendered, then replayed backwards.
   // `wantStill` also returns the middle frame as a JPEG. Runs inside
   // export()'s setup and teardown.
-  async renderLoop({ duration, fps, videoBitrate, onProgress, setOutput, style = 'dissolve', wantStill = false }) {
+  async renderLoop({ duration, fps, videoBitrate, onProgress, setOutput, codec = 'avc', frameSize = null, keyFrameInterval = 2, style = 'dissolve', wantStill = false }) {
     const { rendererManager, effectController, postProcessor } = this.app;
     const canvas = rendererManager.renderer.domElement;
     const ticksPerFrame = SIM_RATE / fps;
@@ -284,10 +309,11 @@ export class Exporter {
     const stillFrame = Math.floor(totalFrames / 2);
     let still = null;
 
-    // The dissolve is composited on a 2D canvas, which is what gets encoded
+    // Frames are composited on a 2D canvas (dissolved, replayed or scaled to
+    // `frameSize`), which is what gets encoded
     const composite = document.createElement('canvas');
-    composite.width = canvas.width;
-    composite.height = canvas.height;
+    composite.width = frameSize?.width ?? canvas.width;
+    composite.height = frameSize?.height ?? canvas.height;
     const ctx = composite.getContext('2d');
 
     const sink = new BlobSink();
@@ -300,7 +326,7 @@ export class Exporter {
     });
     setOutput(output);
 
-    const videoSource = new CanvasSource(composite, { codec: 'avc', bitrate: videoBitrate, keyFrameInterval: 2 });
+    const videoSource = new CanvasSource(composite, { codec, bitrate: videoBitrate, keyFrameInterval });
     output.addVideoTrack(videoSource, { frameRate: fps });
     await output.start();
 
@@ -339,7 +365,7 @@ export class Exporter {
     const drawStored = async (blob, alpha) => {
       const bitmap = await createImageBitmap(blob);
       ctx.globalAlpha = alpha;
-      ctx.drawImage(bitmap, 0, 0);
+      ctx.drawImage(bitmap, 0, 0, composite.width, composite.height);
       bitmap.close();
     };
 
@@ -361,7 +387,7 @@ export class Exporter {
       } else {
         renderFrame(frame);
         ctx.globalAlpha = 1;
-        ctx.drawImage(canvas, 0, 0);
+        ctx.drawImage(canvas, 0, 0, composite.width, composite.height);
         if (isBounce && frame > 0 && frame < turnFrame) forward[frame] = await snapshot(canvas);
       }
 
@@ -370,8 +396,10 @@ export class Exporter {
         await drawStored(leadIn[fadeIndex], (fadeIndex + 1) / (fadeFrames + 1));
       }
 
+      // The still is always a freshly rendered frame (never inside the
+      // dissolve or the reversed half), taken at the canvas's full size
       if (wantStill && frame === stillFrame) {
-        still = await new Promise((resolve) => composite.toBlob(resolve, 'image/jpeg', 1));
+        still = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 1));
       }
 
       await videoSource.add(frame / fps, 1 / fps);
@@ -384,7 +412,8 @@ export class Exporter {
       blob: sink.toBlob(format.mimeType),
       filename: `glitch-visualizer-loop${format.fileExtension}`,
       still,
-      stillTime: stillFrame / fps
+      stillTime: stillFrame / fps,
+      frameCount: totalFrames
     };
   }
 }
