@@ -1,3 +1,5 @@
+import { createZip } from './zip.js';
+
 export class Recorder {
   constructor(app) {
     this.app = app;
@@ -180,7 +182,22 @@ export class Recorder {
       return;
     }
 
-    files.forEach((file) => this.downloadDataURL(URL.createObjectURL(file), file.name));
+    if (files.length === 1) {
+      this.downloadDataURL(URL.createObjectURL(files[0]), files[0].name);
+    } else {
+      this.downloadAsZip(files);
+    }
+  }
+
+  // Browsers drop or block all but one of several downloads started together
+  // (Safari keeps only the last), so a set of files goes out as a single zip
+  async downloadAsZip(files) {
+    const entries = await Promise.all(files.map(async (file) => ({
+      name: file.name,
+      bytes: new Uint8Array(await file.arrayBuffer())
+    })));
+    const name = files[0].name.replace(/\.[^.]+$/, '') + '.zip';
+    this.downloadDataURL(URL.createObjectURL(createZip(entries)), name);
   }
 
   downloadDataURL(dataURL, filename) {

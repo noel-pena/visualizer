@@ -534,7 +534,8 @@ export class UIController {
           // AbortError = user closed the sheet; keep the toast so they can retry
           if (e.name !== 'AbortError') {
             console.error('Share failed, falling back to download:', e);
-            files.forEach((file) => recorder.downloadDataURL(URL.createObjectURL(file), file.name));
+            if (files.length > 1) recorder.downloadAsZip(files);
+            else recorder.downloadDataURL(URL.createObjectURL(files[0]), files[0].name);
             hideToast();
           }
         }
