@@ -559,6 +559,8 @@ export class UIController {
     };
     const lengthSelect = document.getElementById('export-length-select');
     const setupHint = document.getElementById('export-setup-hint');
+    const loopStyleRow = document.getElementById('export-loop-style-row');
+    const loopStyleSelect = document.getElementById('export-loop-style-select');
     const progressText = document.getElementById('export-progress-text');
     const progressBar = document.getElementById('export-progress-bar');
     const messageText = document.getElementById('export-message-text');
@@ -578,8 +580,9 @@ export class UIController {
     // Clips start at the playhead; the full track always starts from the top.
     // Loops are silent and don't use the track at all.
     const getRange = () => {
-      if (lengthSelect.value.startsWith('loop:')) return { loop: true, duration: parseFloat(lengthSelect.value.slice(5)) };
-      if (lengthSelect.value === 'live') return { livePhoto: true, duration: 3 };
+      const loopStyle = loopStyleSelect.value;
+      if (lengthSelect.value.startsWith('loop:')) return { loop: true, loopStyle, duration: parseFloat(lengthSelect.value.slice(5)) };
+      if (lengthSelect.value === 'live') return { livePhoto: true, loopStyle, duration: 3 };
       if (lengthSelect.value === 'full') return { startTime: 0, duration: null };
       const position = audioManager.audioElement.currentTime || 0;
       return { startTime: position, duration: parseFloat(lengthSelect.value) };
@@ -587,6 +590,7 @@ export class UIController {
     const updateHint = () => {
       const canvas = this.app.rendererManager.renderer.domElement;
       const { startTime, duration, loop, livePhoto } = getRange();
+      loopStyleRow.classList.toggle('hidden', !loop && !livePhoto);
       if (livePhoto) {
         setupHint.textContent = `Photo + video pair for the iPhone Lock Screen · ${canvas.width}×${canvas.height}`;
         return;
@@ -600,6 +604,7 @@ export class UIController {
         + (duration ? ' · starts at the playhead' : '');
     };
     lengthSelect.addEventListener('change', updateHint);
+    loopStyleSelect.addEventListener('change', updateHint);
 
     exportButton.addEventListener('click', () => {
       if (recorder.isRecording) return;

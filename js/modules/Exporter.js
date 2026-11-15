@@ -104,7 +104,9 @@ export class Exporter {
   // needed. With `livePhoto`, render a short silent clip and package it as an
   // iOS Live Photo (a paired JPEG + MOV). Resolves with
   // { files: [{ blob, filename }] }, or null if cancelled. onProgress gets 0..1.
-  async export({ startTime = 0, duration = null, loop = false, livePhoto = false, onProgress = null } = {}) {
+  // `loopStyle` picks how loops and Live Photos hide the restart: 'dissolve'
+  // or 'bounce' (forward, then the same frames in reverse).
+  async export({ startTime = 0, duration = null, loop = false, livePhoto = false, loopStyle = 'dissolve', onProgress = null } = {}) {
     if (this.isExporting) return null;
 
     const { rendererManager, audioManager, effectController, postProcessor, recorder } = this.app;
@@ -137,7 +139,7 @@ export class Exporter {
       if (loop || livePhoto) {
         const clip = await this.renderLoop({
           duration, fps, videoBitrate, onProgress,
-          seamless: loop,
+          style: loopStyle,
           wantStill: livePhoto,
           setOutput: (o) => { output = o; }
         });
@@ -261,18 +263,24 @@ export class Exporter {
     }
   }
 
-  // Silent clip without a track. When `seamless`, frames from just before the
-  // start are kept (compressed) and dissolved over the final second, so the
-  // last frame leads straight back into the first. `wantStill` also returns
-  // the middle frame as a JPEG. Runs inside export()'s setup and teardown.
-  async renderLoop({ duration, fps, videoBitrate, onProgress, setOutput, seamless = true, wantStill = false }) {
+  // Silent clip without a track that repeats without a visible restart.
+  // 'dissolve': frames from just before the start are kept (compressed) and
+  // faded over the final second, so the last frame leads straight back into
+  // the first. 'bounce': the first half is rendered, then replayed backwards.
+  // `wantStill` also returns the middle frame as a JPEG. Runs inside
+  // export()'s setup and teardown.
+  async renderLoop({ duration, fps, videoBitrate, onProgress, setOutput, style = 'dissolve', wantStill = false }) {
     const { rendererManager, effectController, postProcessor } = this.app;
     const canvas = rendererManager.renderer.domElement;
     const ticksPerFrame = SIM_RATE / fps;
     const tickMs = 1000 / SIM_RATE;
 
     const totalFrames = Math.round(duration * fps);
-    const fadeFrames = seamless ? Math.min(Math.round(LOOP_FADE_SECONDS * fps), Math.floor(totalFrames / 2)) : 0;
+    const isBounce = style === 'bounce';
+    const fadeFrames = isBounce ? 0 : Math.min(Math.round(LOOP_FADE_SECONDS * fps), Math.floor(totalFrames / 2));
+    // A bounce plays frames 0..turn forward, then turn-1..1 backwards, so
+    // neither end frame is shown twice in a row
+    const turnFrame = Math.floor(totalFrames / 2);
     const stillFrame = Math.floor(totalFrames / 2);
     let still = null;
 
@@ -325,28 +333,41 @@ export class Exporter {
       return true;
     };
 
-    // Lead-in frames, stored as high-quality JPEGs — raw 4K frames would not
-    // fit in a phone's memory
+    // Frames that are needed again later are stored as high-quality JPEGs —
+    // raw 4K frames would not fit in a phone's memory
+    const snapshot = (source) => new Promise((resolve) => source.toBlob(resolve, 'image/jpeg', 0.95));
+    const drawStored = async (blob, alpha) => {
+      const bitmap = await createImageBitmap(blob);
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(bitmap, 0, 0);
+      bitmap.close();
+    };
+
     const leadIn = [];
     for (let i = 0; i < fadeFrames; i++) {
       if (!(await checkpoint(i))) return null;
       renderFrame(i - fadeFrames);
-      leadIn.push(await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.95)));
+      leadIn.push(await snapshot(canvas));
     }
 
+    const forward = []; // bounce only: frames to replay in reverse
     for (let frame = 0; frame < totalFrames; frame++) {
       if (!(await checkpoint(fadeFrames + frame))) return null;
-      renderFrame(frame);
 
-      ctx.globalAlpha = 1;
-      ctx.drawImage(canvas, 0, 0);
+      if (isBounce && frame > turnFrame) {
+        const mirrored = 2 * turnFrame - frame;
+        await drawStored(forward[mirrored], 1);
+        forward[mirrored] = null;
+      } else {
+        renderFrame(frame);
+        ctx.globalAlpha = 1;
+        ctx.drawImage(canvas, 0, 0);
+        if (isBounce && frame > 0 && frame < turnFrame) forward[frame] = await snapshot(canvas);
+      }
 
       const fadeIndex = frame - (totalFrames - fadeFrames);
       if (fadeFrames > 0 && fadeIndex >= 0) {
-        const bitmap = await createImageBitmap(leadIn[fadeIndex]);
-        ctx.globalAlpha = (fadeIndex + 1) / (fadeFrames + 1);
-        ctx.drawImage(bitmap, 0, 0);
-        bitmap.close();
+        await drawStored(leadIn[fadeIndex], (fadeIndex + 1) / (fadeFrames + 1));
       }
 
       if (wantStill && frame === stillFrame) {
